@@ -4,11 +4,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'oil',      label: 'Oil',            color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
   { key: 'hrc',      label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
-  { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/cwt · Yahoo Finance (ALI=F)' },
-  { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. Nickel Proxy · USD · Yahoo Finance (VALE)' },
   { key: 'plastics', label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
+  { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/cwt · Yahoo Finance (ALI=F)' },
+  { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
+  { key: 'oil',      label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
 ];
 
 const RANGES = [
@@ -597,7 +597,7 @@ function ResinChartPanel({ title, history, color, loading, tabColor }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('oil');
+  const [activeTab, setActiveTab] = useState('hrc');
   const tab = TABS.find((t) => t.key === activeTab);
 
   return (
@@ -647,7 +647,7 @@ export default function Home() {
         {activeTab === 'ss' && (
           <SingleTab commodity="ss" tabColor={tab.color} unit="USD"
             footerSource="Source: Yahoo Finance (VALE) · Vale S.A. NYSE · world's largest nickel producer"
-            proxyNote="No direct exchange-traded stainless steel instrument exists. Vale S.A. (VALE) — the world's largest nickel producer — is used as the primary SS cost proxy. Nickel is the dominant alloying element in 304 and 316 SS, representing ~30–40% of mill cost and driving the alloy surcharge. Price shown is VALE stock price in USD (NYSE). HRC base cost is tracked separately in the HRC Steel tab." />
+            proxyNote="Stainless steel has no direct futures market. Vale S.A. (VALE) — the world's largest nickel producer — is used as the leading indicator for SS alloy surcharge pressure. Nickel drives ~30–40% of 304/316 SS mill cost; when VALE rises, expect surcharge increases from your SS suppliers. Base carbon steel cost is tracked separately in the HRC Steel tab." />
         )}
 
         {activeTab === 'plastics' && <PlasticsTab tabColor={tab.color} />}

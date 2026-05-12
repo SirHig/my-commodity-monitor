@@ -4,7 +4,7 @@ const COMMODITIES = {
   oil: {
     instruments: [
       { ticker: 'CL=F', name: 'WTI Crude', unit: 'USD/bbl', color: '#f59e0b' },
-      { ticker: 'BZ=F', name: 'Brent Crude', unit: 'USD/bbl', color: '#fb923c' },
+      { ticker: 'BZ=F', name: 'Brent Crude', unit: 'USD/bbl', color: '#38bdf8' },
     ],
   },
   aluminum: {
