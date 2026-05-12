@@ -20,7 +20,7 @@ const TABS = [
     key: 'ss',
     label: 'Stainless Steel',
     color: '#06b6d4',
-    subtitle: 'LME Nickel Proxy · USD/MT · Yahoo Finance (NI=F)',
+    subtitle: 'Nickel ETN Proxy · USD · Yahoo Finance (JJN)',
   },
 ];
 
@@ -536,8 +536,8 @@ export default function Home() {
             commodity="ss"
             tabColor={tab.color}
             unit="USD/MT"
-            footerSource="Source: Yahoo Finance (NI=F) · LME Nickel futures · USD/MT"
-            proxyNote="No direct exchange-traded stainless steel instrument exists. LME Nickel futures (NI=F) are used as the primary cost proxy — nickel is the dominant alloying element in 304 and 316 SS, representing ~30–40% of mill cost and driving alloy surcharge pricing."
+            footerSource="Source: Yahoo Finance (JJN) · iPath Bloomberg Nickel ETN · tracks nickel commodity prices"
+            proxyNote="No direct exchange-traded stainless steel instrument exists. JJN (iPath Bloomberg Nickel ETN) tracks nickel commodity prices and is used as the primary SS cost proxy — nickel is the dominant alloying element in 304 and 316 SS, representing ~30–40% of mill cost and driving alloy surcharge pricing. Price shown is ETN share price in USD, not $/MT."
           />
         )}
 

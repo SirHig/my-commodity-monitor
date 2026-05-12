@@ -14,7 +14,7 @@ const COMMODITIES = {
   },
   ss: {
     instruments: [
-      { ticker: 'NI=F', name: 'Nickel (SS Proxy)', unit: 'USD/MT', color: '#06b6d4' },
+      { ticker: 'JJN', name: 'Nickel ETN (SS Proxy)', unit: 'USD', color: '#06b6d4' },
     ],
   },
 };
