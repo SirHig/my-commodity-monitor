@@ -9,7 +9,7 @@ const COMMODITIES = {
   },
   aluminum: {
     instruments: [
-      { ticker: 'ALI=F', name: 'Aluminum', unit: 'USD/cwt', color: '#94a3b8' },
+      { ticker: 'ALI=F', name: 'Aluminum', unit: 'USD/lb', color: '#94a3b8', divisor: 2204.62 },
     ],
   },
   ss: {
@@ -62,7 +62,14 @@ export default async function handler(req, res) {
           fetchYF(inst.ticker, '1d', '5y'),
           fetchYF(inst.ticker, '1mo', 'max'),
         ]);
-        return { ...inst, daily, monthly };
+        const convert = (data) => {
+          if (!inst.divisor) return data;
+          return data.map((d) => ({
+            ...d,
+            close: d.close != null ? Math.round((d.close / inst.divisor) * 10000) / 10000 : null,
+          }));
+        };
+        return { ...inst, daily: convert(daily), monthly: convert(monthly) };
       })
     );
     return res.status(200).json({ instruments, fetchedAt: new Date().toISOString() });

@@ -6,7 +6,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 const TABS = [
   { key: 'hrc',      label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
   { key: 'plastics', label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
-  { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/cwt · Yahoo Finance (ALI=F)' },
+  { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/lb · Yahoo Finance (ALI=F)' },
   { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
   { key: 'oil',      label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
 ];
@@ -250,7 +250,7 @@ function RangeButtons({ range, setRange, tabColor }) {
   );
 }
 
-function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', tickPrefix = '$' }) {
+function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', tickPrefix = '$', yDecimals = 0 }) {
   const [range, setRange] = useState('ytd');
   const panelRef = useRef(null);
 
@@ -297,7 +297,7 @@ function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', ti
             domain={yDomain}
             tick={{ fill: '#94a3b8', fontSize: 11 }}
             stroke="#2a2a32"
-            tickFormatter={(v) => `${tickPrefix}${fmt(v, 0)}`}
+            tickFormatter={(v) => `${tickPrefix}${fmt(v, yDecimals)}`}
             width={65}
           />
           <Tooltip content={<ChartTooltip unit={unit} />} />
@@ -475,7 +475,7 @@ function OilTab({ tabColor }) {
 
 // ─── Tab: Single Instrument (HRC, Aluminum, SS) ───────────────────────────────
 
-function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPrefix = '$' }) {
+function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPrefix = '$', yDecimals = 0 }) {
   const [instrument, setInstrument] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
@@ -516,16 +516,16 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
         </KpiCard>
         <KpiCard title="YTD"
           main={kpi.ytdChangePct != null ? `${kpi.ytdChangePct >= 0 ? '+' : ''}${fmt(kpi.ytdChangePct)}%` : '—'}
-          sub={kpi.ytdHigh != null ? `H: ${tickPrefix}${fmt(kpi.ytdHigh, 0)}  ·  L: ${tickPrefix}${fmt(kpi.ytdLow, 0)}` : 'No YTD data'}
+          sub={kpi.ytdHigh != null ? `H: ${tickPrefix}${fmt(kpi.ytdHigh, yDecimals)}  ·  L: ${tickPrefix}${fmt(kpi.ytdLow, yDecimals)}` : 'No YTD data'}
           accent={tabColor} />
         <KpiCard title="5-Year High"
-          main={kpi.fiveYrHigh != null ? `${tickPrefix}${fmt(kpi.fiveYrHigh, 0)}` : '—'}
+          main={kpi.fiveYrHigh != null ? `${tickPrefix}${fmt(kpi.fiveYrHigh, yDecimals)}` : '—'}
           sub={pctOf5YHigh != null ? `Current at ${fmt(pctOf5YHigh, 0)}% of 5Y high` : ''} accent="#64748b" />
       </div>
       <ChartPanel title={`${instrument.name} (${unit})`} data={instrument.daily}
         lines={[{ dataKey: 'close', name: instrument.name, color: tabColor }]}
         tabColor={tabColor} useMonthlyFor={instrument.monthly}
-        tickPrefix={tickPrefix} />
+        tickPrefix={tickPrefix} yDecimals={yDecimals} />
       <NewsPanel commodity={commodity} tabColor={tabColor} />
       <TabFooter source={footerSource} fetchedAt={fetchedAt} />
     </div>
@@ -768,8 +768,9 @@ export default function Home() {
         )}
 
         {activeTab === 'aluminum' && (
-          <SingleTab commodity="aluminum" tabColor={tab.color} unit="USD/cwt"
-            footerSource="Source: Yahoo Finance (ALI=F) · CME Micro Aluminum futures · USD/cwt" />
+          <SingleTab commodity="aluminum" tabColor={tab.color} unit="USD/lb"
+            footerSource="Source: Yahoo Finance (ALI=F) · CME Micro Aluminum futures · USD/lb (÷2204.62 from USD/MT)"
+            yDecimals={4} />
         )}
 
         {activeTab === 'ss' && (
