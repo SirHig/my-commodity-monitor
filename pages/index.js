@@ -7,7 +7,7 @@ const TABS = [
   { key: 'oil',      label: 'Oil',            color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
   { key: 'hrc',      label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
   { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/cwt · Yahoo Finance (ALI=F)' },
-  { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Nickel ETN Proxy · USD · Yahoo Finance (JJN)' },
+  { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. Nickel Proxy · USD · Yahoo Finance (VALE)' },
   { key: 'plastics', label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
 ];
 
@@ -646,8 +646,8 @@ export default function Home() {
 
         {activeTab === 'ss' && (
           <SingleTab commodity="ss" tabColor={tab.color} unit="USD"
-            footerSource="Source: Yahoo Finance (JJN) · iPath Bloomberg Nickel ETN · tracks nickel commodity prices"
-            proxyNote="No direct exchange-traded stainless steel instrument exists. JJN (iPath Bloomberg Nickel ETN) tracks nickel commodity prices and is used as the primary SS cost proxy — nickel is the dominant alloying element in 304 and 316 SS, representing ~30–40% of mill cost and driving alloy surcharge pricing. Price shown is ETN share price in USD, not $/MT." />
+            footerSource="Source: Yahoo Finance (VALE) · Vale S.A. NYSE · world's largest nickel producer"
+            proxyNote="No direct exchange-traded stainless steel instrument exists. Vale S.A. (VALE) — the world's largest nickel producer — is used as the primary SS cost proxy. Nickel is the dominant alloying element in 304 and 316 SS, representing ~30–40% of mill cost and driving the alloy surcharge. Price shown is VALE stock price in USD (NYSE). HRC base cost is tracked separately in the HRC Steel tab." />
         )}
 
         {activeTab === 'plastics' && <PlasticsTab tabColor={tab.color} />}

@@ -14,7 +14,7 @@ const COMMODITIES = {
   },
   ss: {
     instruments: [
-      { ticker: 'JJN', name: 'Nickel ETN (SS Proxy)', unit: 'USD', color: '#06b6d4' },
+      { ticker: 'VALE', name: 'Vale S.A. (Nickel Proxy)', unit: 'USD', color: '#06b6d4' },
     ],
   },
   hrc: {
