@@ -14,6 +14,16 @@ const NEWS_FEEDS = {
     { label: 'Nickel', url: 'https://news.google.com/rss/search?q=nickel+price+LME+market&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Alloy Surcharges', url: 'https://news.google.com/rss/search?q=stainless+steel+surcharge+alloy&hl=en-US&gl=US&ceid=US:en' },
   ],
+  hrc: [
+    { label: 'HRC Steel', url: 'https://news.google.com/rss/search?q=HRC+hot+rolled+coil+steel+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Steel Market', url: 'https://news.google.com/rss/search?q=steel+market+futures+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Tariffs & Trade', url: 'https://news.google.com/rss/search?q=steel+tariff+trade+section+232&hl=en-US&gl=US&ceid=US:en' },
+  ],
+  plastics: [
+    { label: 'HDPE', url: 'https://news.google.com/rss/search?q=HDPE+resin+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'LLDPE', url: 'https://news.google.com/rss/search?q=LLDPE+resin+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Plastics Market', url: 'https://news.google.com/rss/search?q=plastic+resin+price+market&hl=en-US&gl=US&ceid=US:en' },
+  ],
 };
 
 function parseItems(xml) {

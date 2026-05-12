@@ -17,6 +17,11 @@ const COMMODITIES = {
       { ticker: 'JJN', name: 'Nickel ETN (SS Proxy)', unit: 'USD', color: '#06b6d4' },
     ],
   },
+  hrc: {
+    instruments: [
+      { ticker: 'HRC=F', name: 'HRC Steel (CME)', unit: 'USD/T', color: '#ef4444' },
+    ],
+  },
 };
 
 const YF_HEADERS = {
