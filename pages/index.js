@@ -58,37 +58,38 @@ function filterByRange(data, range) {
   return data;
 }
 
-// Color maps for light-theme export
-const BG_MAP = {
-  'rgb(15, 15, 17)':  '#ffffff',
-  'rgb(26, 26, 31)':  '#f8fafc',
-  'rgb(42, 42, 50)':  '#e2e8f0',
-  'rgb(19, 19, 26)':  '#f1f5f9',
-  'rgb(31, 31, 42)':  '#f1f5f9',
-  'rgb(10, 10, 12)':  '#f8fafc',
-};
-const TEXT_MAP = {
-  'rgb(255, 255, 255)': '#0f172a',
-  'rgb(148, 163, 184)': '#475569',
-  'rgb(100, 116, 139)': '#64748b',
-  'rgb(71, 85, 105)':   '#94a3b8',
-};
+// Inject a stylesheet into the cloned document so Tailwind arbitrary-value classes
+// get overridden before html2canvas paints. window.getComputedStyle() is unreliable
+// on nodes from a foreign document — CSS injection is the only bulletproof approach.
+function applyLightTheme(doc, el) {
+  const style = doc.createElement('style');
+  style.textContent = `
+    [class*="bg-[#0f0f11]"] { background-color: #ffffff !important; }
+    [class*="bg-[#1a1a1f]"] { background-color: #f8fafc !important; }
+    [class*="bg-[#2a2a32]"] { background-color: #e2e8f0 !important; }
+    [class*="bg-[#13131a]"] { background-color: #f1f5f9 !important; }
+    [class*="bg-[#3a3a44]"] { background-color: #cbd5e1 !important; }
+    [class*="text-white"]    { color: #0f172a   !important; }
+    [class*="text-slate-100"]{ color: #1e293b   !important; }
+    [class*="text-slate-200"]{ color: #334155   !important; }
+    [class*="text-slate-300"]{ color: #475569   !important; }
+    [class*="text-slate-400"]{ color: #64748b   !important; }
+    [class*="text-slate-500"]{ color: #94a3b8   !important; }
+    [class*="text-slate-600"]{ color: #94a3b8   !important; }
+    [class*="border-[#2a2a32]"]     { border-color: #e2e8f0 !important; }
+    [class*="divide-[#2a2a32]"] > * { border-color: #e2e8f0 !important; }
+  `;
+  doc.head.appendChild(style);
 
-function applyLightTheme(el) {
-  el.querySelectorAll('*').forEach((node) => {
-    if (node.nodeType !== 1) return;
-    const cs = window.getComputedStyle(node);
-    if (BG_MAP[cs.backgroundColor])   node.style.backgroundColor = BG_MAP[cs.backgroundColor];
-    if (TEXT_MAP[cs.color])            node.style.color            = TEXT_MAP[cs.color];
-    if (cs.borderColor === 'rgb(42, 42, 50)') node.style.borderColor = '#e2e8f0';
-  });
-  // SVG axis tick text
+  // Recharts SVG nodes use inline fill/stroke attributes — not reachable by class selectors
   el.querySelectorAll('text').forEach((node) => {
-    const f = node.getAttribute('fill') || node.style.fill;
-    if (f === '#94a3b8' || f === 'rgb(148, 163, 184)') node.style.fill = '#475569';
-    else if (f === 'rgb(255,255,255)' || f === '#ffffff') node.style.fill = '#0f172a';
+    const f = node.getAttribute('fill') || node.style.fill || '';
+    if (f === '#94a3b8' || f === 'rgb(148, 163, 184)') {
+      node.setAttribute('fill', '#475569'); node.style.fill = '#475569';
+    } else if (f === '#ffffff' || f === 'rgb(255, 255, 255)' || f === 'rgb(255,255,255)') {
+      node.setAttribute('fill', '#0f172a'); node.style.fill = '#0f172a';
+    }
   });
-  // Grid + axis lines
   el.querySelectorAll(
     '.recharts-cartesian-grid line, .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line'
   ).forEach((node) => { node.style.stroke = '#e2e8f0'; });
@@ -103,7 +104,7 @@ async function downloadPanel(ref, title, theme = 'dark') {
     scale: 2,
     useCORS: true,
     logging: false,
-    onclone: isLight ? (_doc, el) => applyLightTheme(el) : undefined,
+    onclone: isLight ? (doc, el) => applyLightTheme(doc, el) : undefined,
   });
   const date = new Date().toISOString().split('T')[0];
   const slug = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
