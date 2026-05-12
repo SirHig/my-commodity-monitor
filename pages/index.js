@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
@@ -56,6 +56,50 @@ function filterByRange(data, range) {
   if (range === '2y')  return data.filter((d) => d.date >= cutoff(2));
   if (range === '5y')  return data.filter((d) => d.date >= cutoff(5));
   return data;
+}
+
+async function downloadPanel(ref, title) {
+  if (!ref.current) return;
+  const html2canvas = (await import('html2canvas')).default;
+  const canvas = await html2canvas(ref.current, {
+    backgroundColor: '#1a1a1f',
+    scale: 2,
+    useCORS: true,
+    logging: false,
+  });
+  const date = new Date().toISOString().split('T')[0];
+  const slug = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
+  const link = document.createElement('a');
+  link.download = `${slug}_${date}.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+function DownloadButton({ panelRef, title, tabColor }) {
+  const [busy, setBusy] = useState(false);
+  const handle = async () => {
+    setBusy(true);
+    await downloadPanel(panelRef, title);
+    setBusy(false);
+  };
+  return (
+    <button
+      onClick={handle}
+      disabled={busy}
+      title="Download chart as PNG"
+      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+      style={{ backgroundColor: '#2a2a32', color: busy ? '#64748b' : tabColor }}
+    >
+      {busy ? (
+        <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 1v7M3 5l3 3 3-3M1 10h10" />
+        </svg>
+      )}
+      {busy ? 'Saving…' : 'PNG'}
+    </button>
+  );
 }
 
 function buildKpi(daily) {
@@ -132,6 +176,7 @@ function RangeButtons({ range, setRange, tabColor }) {
 
 function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', tickPrefix = '$' }) {
   const [range, setRange] = useState('ytd');
+  const panelRef = useRef(null);
 
   const activeData = useMemo(() => {
     const src = range === 'max' && useMonthlyFor ? useMonthlyFor : data;
@@ -154,10 +199,13 @@ function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', ti
   };
 
   return (
-    <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5">
+    <div ref={panelRef} className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-base font-semibold text-white">{title}</h2>
-        <RangeButtons range={range} setRange={setRange} tabColor={tabColor} />
+        <div className="flex items-center gap-2">
+          <RangeButtons range={range} setRange={setRange} tabColor={tabColor} />
+          <DownloadButton panelRef={panelRef} title={title} tabColor={tabColor} />
+        </div>
       </div>
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={activeData} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
@@ -540,6 +588,7 @@ function PlasticsTab({ tabColor }) {
 
 function ResinChartPanel({ title, history, color, loading, tabColor }) {
   const [range, setRange] = useState('2y');
+  const panelRef = useRef(null);
 
   const filtered = useMemo(() => {
     if (!history.length) return [];
@@ -567,10 +616,13 @@ function ResinChartPanel({ title, history, color, loading, tabColor }) {
   };
 
   return (
-    <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5">
+    <div ref={panelRef} className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5">
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <h2 className="text-base font-semibold text-white">{title}</h2>
-        <RangeButtons range={range} setRange={setRange} tabColor={tabColor} />
+        <div className="flex items-center gap-2">
+          <RangeButtons range={range} setRange={setRange} tabColor={tabColor} />
+          <DownloadButton panelRef={panelRef} title={title} tabColor={tabColor} />
+        </div>
       </div>
       {loading ? (
         <div className="flex justify-center items-center h-64">
