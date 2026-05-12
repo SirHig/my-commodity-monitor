@@ -58,47 +58,123 @@ function filterByRange(data, range) {
   return data;
 }
 
-async function downloadPanel(ref, title) {
+// Color maps for light-theme export
+const BG_MAP = {
+  'rgb(15, 15, 17)':  '#ffffff',
+  'rgb(26, 26, 31)':  '#f8fafc',
+  'rgb(42, 42, 50)':  '#e2e8f0',
+  'rgb(19, 19, 26)':  '#f1f5f9',
+  'rgb(31, 31, 42)':  '#f1f5f9',
+  'rgb(10, 10, 12)':  '#f8fafc',
+};
+const TEXT_MAP = {
+  'rgb(255, 255, 255)': '#0f172a',
+  'rgb(148, 163, 184)': '#475569',
+  'rgb(100, 116, 139)': '#64748b',
+  'rgb(71, 85, 105)':   '#94a3b8',
+};
+
+function applyLightTheme(el) {
+  el.querySelectorAll('*').forEach((node) => {
+    if (node.nodeType !== 1) return;
+    const cs = window.getComputedStyle(node);
+    if (BG_MAP[cs.backgroundColor])   node.style.backgroundColor = BG_MAP[cs.backgroundColor];
+    if (TEXT_MAP[cs.color])            node.style.color            = TEXT_MAP[cs.color];
+    if (cs.borderColor === 'rgb(42, 42, 50)') node.style.borderColor = '#e2e8f0';
+  });
+  // SVG axis tick text
+  el.querySelectorAll('text').forEach((node) => {
+    const f = node.getAttribute('fill') || node.style.fill;
+    if (f === '#94a3b8' || f === 'rgb(148, 163, 184)') node.style.fill = '#475569';
+    else if (f === 'rgb(255,255,255)' || f === '#ffffff') node.style.fill = '#0f172a';
+  });
+  // Grid + axis lines
+  el.querySelectorAll(
+    '.recharts-cartesian-grid line, .recharts-cartesian-axis-line, .recharts-cartesian-axis-tick-line'
+  ).forEach((node) => { node.style.stroke = '#e2e8f0'; });
+}
+
+async function downloadPanel(ref, title, theme = 'dark') {
   if (!ref.current) return;
   const html2canvas = (await import('html2canvas')).default;
+  const isLight = theme === 'light';
   const canvas = await html2canvas(ref.current, {
-    backgroundColor: '#1a1a1f',
+    backgroundColor: isLight ? '#f8fafc' : '#1a1a1f',
     scale: 2,
     useCORS: true,
     logging: false,
+    onclone: isLight ? (_doc, el) => applyLightTheme(el) : undefined,
   });
   const date = new Date().toISOString().split('T')[0];
   const slug = title.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '');
   const link = document.createElement('a');
-  link.download = `${slug}_${date}.png`;
+  link.download = `${slug}_${theme}_${date}.png`;
   link.href = canvas.toDataURL('image/png');
   link.click();
 }
 
 function DownloadButton({ panelRef, title, tabColor }) {
-  const [busy, setBusy] = useState(false);
-  const handle = async () => {
-    setBusy(true);
-    await downloadPanel(panelRef, title);
-    setBusy(false);
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(null); // 'dark' | 'light' | null
+  const wrapRef = useRef(null);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handle = async (theme) => {
+    setOpen(false);
+    setBusy(theme);
+    await downloadPanel(panelRef, title, theme);
+    setBusy(null);
   };
+
+  const DownIcon = () => (
+    <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 1v7M3 5l3 3 3-3M1 10h10" />
+    </svg>
+  );
+  const ChevronIcon = () => (
+    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 3.5l3 3 3-3" />
+    </svg>
+  );
+
   return (
-    <button
-      onClick={handle}
-      disabled={busy}
-      title="Download chart as PNG"
-      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
-      style={{ backgroundColor: '#2a2a32', color: busy ? '#64748b' : tabColor }}
-    >
-      {busy ? (
-        <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
-      ) : (
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 1v7M3 5l3 3 3-3M1 10h10" />
-        </svg>
+    <div ref={wrapRef} className="relative">
+      <button
+        onClick={() => !busy && setOpen((o) => !o)}
+        disabled={!!busy}
+        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors disabled:opacity-50 select-none"
+        style={{ backgroundColor: '#2a2a32', color: busy ? '#64748b' : tabColor }}
+      >
+        {busy ? (
+          <span className="inline-block w-3 h-3 border border-current border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <DownIcon />
+        )}
+        {busy ? `Saving ${busy}…` : 'Download'}
+        {!busy && <ChevronIcon />}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[160px] bg-[#1a1a1f] border border-[#2a2a32] rounded-xl shadow-2xl overflow-hidden">
+          <button onClick={() => handle('dark')}
+            className="w-full px-4 py-2.5 text-xs font-medium text-left text-slate-200 hover:bg-[#2a2a32] flex items-center gap-2.5 transition-colors">
+            <span>🌙</span> Dark background
+          </button>
+          <div className="h-px bg-[#2a2a32]" />
+          <button onClick={() => handle('light')}
+            className="w-full px-4 py-2.5 text-xs font-medium text-left text-slate-200 hover:bg-[#2a2a32] flex items-center gap-2.5 transition-colors">
+            <span>☀️</span> Light background
+          </button>
+        </div>
       )}
-      {busy ? 'Saving…' : 'PNG'}
-    </button>
+    </div>
   );
 }
 
