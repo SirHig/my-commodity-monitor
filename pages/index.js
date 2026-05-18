@@ -4,11 +4,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 // ─── Tab Config ───────────────────────────────────────────────────────────────
 
 const TABS = [
-  { key: 'hrc',      label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
-  { key: 'plastics', label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
-  { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/lb · Yahoo Finance (ALI=F)' },
-  { key: 'ss',       label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
-  { key: 'oil',      label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
+  { key: 'dashboard', label: 'Dashboard',      color: '#64748b', subtitle: 'All commodities · Executive summary' },
+  { key: 'hrc',       label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
+  { key: 'plastics',  label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
+  { key: 'aluminum',  label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/lb · Yahoo Finance (ALI=F)' },
+  { key: 'ss',        label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
+  { key: 'oil',       label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
+  { key: 'natgas',    label: 'Nat Gas',         color: '#34d399', subtitle: 'Henry Hub Natural Gas · USD/MMBtu · Yahoo Finance (NG=F)' },
 ];
 
 const RANGES = [
@@ -58,9 +60,6 @@ function filterByRange(data, range) {
   return data;
 }
 
-// Inject a stylesheet into the cloned document so Tailwind arbitrary-value classes
-// get overridden before html2canvas paints. window.getComputedStyle() is unreliable
-// on nodes from a foreign document — CSS injection is the only bulletproof approach.
 function applyLightTheme(doc, el) {
   const style = doc.createElement('style');
   style.textContent = `
@@ -80,8 +79,6 @@ function applyLightTheme(doc, el) {
     [class*="divide-[#2a2a32]"] > * { border-color: #e2e8f0 !important; }
   `;
   doc.head.appendChild(style);
-
-  // Recharts SVG nodes use inline fill/stroke attributes — not reachable by class selectors
   el.querySelectorAll('text').forEach((node) => {
     const f = node.getAttribute('fill') || node.style.fill || '';
     if (f === '#94a3b8' || f === 'rgb(148, 163, 184)') {
@@ -116,10 +113,9 @@ async function downloadPanel(ref, title, theme = 'dark') {
 
 function DownloadButton({ panelRef, title, tabColor }) {
   const [open, setOpen] = useState(false);
-  const [busy, setBusy] = useState(null); // 'dark' | 'light' | null
+  const [busy, setBusy] = useState(null);
   const wrapRef = useRef(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!open) return;
     const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
@@ -161,7 +157,6 @@ function DownloadButton({ panelRef, title, tabColor }) {
         {busy ? `Saving ${busy}…` : 'Download'}
         {!busy && <ChevronIcon />}
       </button>
-
       {open && (
         <div className="absolute right-0 top-full mt-1.5 z-50 min-w-[160px] bg-[#1a1a1f] border border-[#2a2a32] rounded-xl shadow-2xl overflow-hidden">
           <button onClick={() => handle('dark')}
@@ -193,6 +188,30 @@ function buildKpi(daily) {
   const ytdLow       = ytd.length ? Math.min(...ytd.map((d) => d.close)) : null;
   const fiveYrHigh   = daily.length ? Math.max(...daily.map((d) => d.close)) : null;
   return { last, dayChange, dayChangePct, ytdChangePct, ytdHigh, ytdLow, fiveYrHigh };
+}
+
+// ─── Supplier Prices ──────────────────────────────────────────────────────────
+
+function useSupplierPrices() {
+  const [prices, setPrices] = useState({});
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('lsi_supplier_prices');
+      if (stored) setPrices(JSON.parse(stored));
+    } catch {}
+  }, []);
+
+  const setPrice = useCallback((key, value) => {
+    setPrices((prev) => {
+      const parsed = value === '' || value === null ? null : parseFloat(value);
+      const updated = { ...prev, [key]: isNaN(parsed) ? null : parsed };
+      try { localStorage.setItem('lsi_supplier_prices', JSON.stringify(updated)); } catch {}
+      return updated;
+    });
+  }, []);
+
+  return [prices, setPrice];
 }
 
 // ─── Shared UI ────────────────────────────────────────────────────────────────
@@ -323,6 +342,73 @@ function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', ti
   );
 }
 
+// ─── Supplier Price Panel ─────────────────────────────────────────────────────
+
+function SupplierPriceRow({ label, unit, tickPrefix = '', marketPrice, value, onSave }) {
+  const [inputVal, setInputVal] = useState(value != null ? String(value) : '');
+
+  useEffect(() => {
+    setInputVal(value != null ? String(value) : '');
+  }, [value]);
+
+  const delta = value != null && marketPrice != null
+    ? ((value - marketPrice) / marketPrice) * 100
+    : null;
+
+  const save = () => onSave(inputVal);
+
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <span className="text-xs font-semibold text-slate-300 w-20 shrink-0">{label}</span>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number"
+          step="any"
+          placeholder="—"
+          value={inputVal}
+          onChange={(e) => setInputVal(e.target.value)}
+          onBlur={save}
+          onKeyDown={(e) => e.key === 'Enter' && e.target.blur()}
+          className="w-24 bg-[#0f0f11] border border-[#2a2a32] rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-slate-500 font-mono"
+        />
+        <span className="text-xs text-slate-500">{unit}</span>
+      </div>
+      {marketPrice != null && (
+        <span className="text-xs text-slate-500">
+          mkt: <span className="font-mono text-slate-300">{tickPrefix}{fmt(marketPrice)}</span>
+        </span>
+      )}
+      {delta != null && (
+        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+          delta > 0 ? 'text-red-400 bg-red-950/60' : 'text-emerald-400 bg-emerald-950/60'
+        }`}>
+          {delta > 0 ? '+' : ''}{fmt(delta)}% vs mkt
+        </span>
+      )}
+    </div>
+  );
+}
+
+function SupplierPricePanel({ items, prices, onSetPrice }) {
+  return (
+    <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl px-5 py-4">
+      <p className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3">Contracted Price</p>
+      <div className="flex flex-col gap-2.5">
+        {items.map((item) => (
+          <SupplierPriceRow
+            key={item.key}
+            {...item}
+            value={prices[item.key] ?? null}
+            onSave={(v) => onSetPrice(item.key, v)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── News Panel ───────────────────────────────────────────────────────────────
+
 function NewsPanel({ commodity, tabColor }) {
   const [news, setNews]       = useState([]);
   const [loading, setLoading] = useState(true);
@@ -410,9 +496,327 @@ function TabFooter({ source, fetchedAt }) {
   );
 }
 
+// ─── Dashboard Tab ────────────────────────────────────────────────────────────
+
+const DASHBOARD_SECTIONS = [
+  {
+    label: 'Metals',
+    items: [
+      { key: 'hrc',      label: 'HRC Steel',      color: '#ef4444', unit: 'USD/T',     tickPrefix: '$', yDecimals: 0, supplierKey: 'hrc' },
+      { key: 'aluminum', label: 'Aluminum',        color: '#94a3b8', unit: 'USD/lb',    tickPrefix: '$', yDecimals: 4, supplierKey: 'aluminum' },
+      { key: 'ss',       label: 'Stainless (proxy)', color: '#06b6d4', unit: 'USD',    tickPrefix: '$', yDecimals: 2, supplierKey: null },
+    ],
+  },
+  {
+    label: 'Energy',
+    items: [
+      { key: 'oil',    label: 'WTI Crude',     color: '#f59e0b', unit: 'USD/bbl',   tickPrefix: '$', yDecimals: 2, supplierKey: 'oil' },
+      { key: 'natgas', label: 'Natural Gas',   color: '#34d399', unit: 'USD/MMBtu', tickPrefix: '$', yDecimals: 3, supplierKey: 'natgas' },
+    ],
+  },
+  {
+    label: 'Plastics',
+    items: [
+      { key: 'hdpe',  label: 'HDPE',  color: '#f59e0b', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_hdpe',  isPlastics: true },
+      { key: 'lldpe', label: 'LLDPE', color: '#a78bfa', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_lldpe', isPlastics: true },
+    ],
+  },
+];
+
+function DashboardCommodityCard({ item, summary, supplierPrice, onTabSwitch }) {
+  if (!summary) {
+    return (
+      <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5 flex flex-col gap-2 min-h-[140px] justify-center">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{item.label}</span>
+        </div>
+        <p className="text-slate-600 text-sm">No data</p>
+      </div>
+    );
+  }
+
+  const { price, dayChangePct, ytdChangePct, ytdHigh, ytdLow, date } = summary;
+  const delta = supplierPrice != null && price != null
+    ? ((supplierPrice - price) / price) * 100
+    : null;
+
+  return (
+    <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5 flex flex-col gap-3"
+      style={{ borderLeftWidth: 3, borderLeftColor: item.color }}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{item.label}</span>
+        </div>
+        {date && <span className="text-xs text-slate-600">{fmtDate(date)}</span>}
+      </div>
+
+      <div className="flex items-end gap-3">
+        <span className="text-2xl font-bold font-mono" style={{ color: item.color }}>
+          {item.tickPrefix}{price != null ? fmt(price, item.yDecimals) : '—'}{item.unit.includes('¢') ? '¢' : ''}
+        </span>
+        {dayChangePct != null && <ChangeChip value={dayChangePct} />}
+      </div>
+
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
+        {ytdChangePct != null && (
+          <span>YTD: <span className={`font-semibold ${ytdChangePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {ytdChangePct >= 0 ? '+' : ''}{fmt(ytdChangePct)}%
+          </span></span>
+        )}
+        {ytdHigh != null && <span>H: {item.tickPrefix}{fmt(ytdHigh, item.yDecimals)}</span>}
+        {ytdLow  != null && <span>L: {item.tickPrefix}{fmt(ytdLow,  item.yDecimals)}</span>}
+      </div>
+
+      {item.supplierKey && (
+        <div className="border-t border-[#2a2a32] pt-2.5 mt-0.5">
+          {supplierPrice != null ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-slate-500">Contracted:</span>
+              <span className="text-xs font-mono text-slate-300">{item.tickPrefix}{fmt(supplierPrice, item.yDecimals)}</span>
+              {delta != null && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  delta > 0 ? 'text-red-400 bg-red-950/60' : 'text-emerald-400 bg-emerald-950/60'
+                }`}>
+                  {delta > 0 ? '+' : ''}{fmt(delta)}% vs mkt
+                </span>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => onTabSwitch(item.key === 'hdpe' || item.key === 'lldpe' ? 'plastics' : item.key)}
+              className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
+            >
+              + Add contracted price
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DashboardTab({ supplierPrices, onTabSwitch }) {
+  const [allData, setAllData] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [fetchedAt, setFetchedAt] = useState(null);
+
+  useEffect(() => {
+    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas'];
+    Promise.allSettled([
+      ...yfKeys.map((k) =>
+        fetch(`/api/commodity-data?commodity=${k}`)
+          .then((r) => r.json())
+          .then((d) => [k, d])
+      ),
+      fetch('/api/plastics-data')
+        .then((r) => r.json())
+        .then((d) => ['plastics', d]),
+    ]).then((results) => {
+      const data = {};
+      results.forEach((r) => {
+        if (r.status === 'fulfilled') {
+          const [key, val] = r.value;
+          data[key] = val;
+        }
+      });
+      setAllData(data);
+      setFetchedAt(new Date().toISOString());
+      setLoading(false);
+    });
+  }, []);
+
+  const getSummary = (item) => {
+    if (item.isPlastics) {
+      const grades = allData.plastics?.grades;
+      if (!grades) return null;
+      const resinKey = item.key === 'hdpe' ? 'HDPE' : 'LLDPE';
+      const headlineId = item.key === 'hdpe' ? 33609 : 33592;
+      const list = grades[resinKey] || [];
+      const grade = list.find((g) => g.id === headlineId) || list[0];
+      if (!grade || grade.current == null) return null;
+      const prev = grade.current - (grade.change || 0);
+      const dayChangePct = prev > 0 ? ((grade.change || 0) / prev) * 100 : null;
+      return {
+        price: grade.current,
+        date: grade.date,
+        dayChangePct,
+        ytdChangePct: null,
+        ytdHigh: null,
+        ytdLow: null,
+      };
+    }
+
+    const instruments = allData[item.key]?.instruments;
+    if (!instruments?.length) return null;
+    const inst = item.key === 'oil'
+      ? instruments.find((i) => i.ticker === 'CL=F') || instruments[0]
+      : instruments[0];
+    const kpi = buildKpi(inst?.daily);
+    if (!kpi) return null;
+    return {
+      price: kpi.last?.close,
+      date: kpi.last?.date,
+      dayChangePct: kpi.dayChangePct,
+      ytdChangePct: kpi.ytdChangePct,
+      ytdHigh: kpi.ytdHigh,
+      ytdLow: kpi.ytdLow,
+    };
+  };
+
+  if (loading) return <Spinner color="#64748b" />;
+
+  return (
+    <div className="space-y-8">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-slate-500">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+        </p>
+        {fetchedAt && (
+          <p className="text-xs text-slate-600">
+            Fetched {new Date(fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
+      </div>
+
+      {/* Sections */}
+      {DASHBOARD_SECTIONS.map((section) => (
+        <div key={section.label}>
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 pl-1">
+            {section.label}
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {section.items.map((item) => (
+              <DashboardCommodityCard
+                key={item.key}
+                item={item}
+                summary={getSummary(item)}
+                supplierPrice={item.supplierKey ? (supplierPrices[item.supplierKey] ?? null) : null}
+                onTabSwitch={onTabSwitch}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      <footer className="border-t border-[#2a2a32] pt-4 pb-2 text-xs text-slate-600 flex flex-wrap justify-between gap-2">
+        <span>Metals & Energy: Yahoo Finance · Plastics: Plastics News</span>
+        <span>Enter contracted prices on individual commodity tabs</span>
+      </footer>
+    </div>
+  );
+}
+
+// ─── Tab: HRC Steel (with LSI price overlay) ─────────────────────────────────
+
+const LSI_HRC_COLOR = '#f97316'; // orange — distinct from market red
+
+function mergeWithLSIPrices(marketData, lsiHistory) {
+  if (!marketData?.length || !lsiHistory?.length) return marketData || [];
+  const sorted = [...lsiHistory].sort((a, b) => a.date.localeCompare(b.date));
+  let lsiIdx = 0;
+  let currentPrice = null;
+  return marketData.map((point) => {
+    while (lsiIdx < sorted.length && sorted[lsiIdx].date <= point.date) {
+      currentPrice = sorted[lsiIdx].price;
+      lsiIdx++;
+    }
+    return { ...point, lsiPrice: currentPrice };
+  });
+}
+
+function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
+  const [instrument, setInstrument] = useState(null);
+  const [lsiHistory, setLsiHistory] = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState(null);
+  const [fetchedAt, setFetchedAt]   = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/commodity-data?commodity=hrc').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch('/lsi-hrc-history.json').then((r) => r.json()).catch(() => []),
+    ])
+      .then(([{ instruments, fetchedAt: fa }, lsi]) => {
+        setInstrument(instruments?.[0] || null);
+        setLsiHistory(lsi || []);
+        setFetchedAt(fa);
+        setLoading(false);
+      })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, []);
+
+  const kpi = useMemo(() => buildKpi(instrument?.daily), [instrument]);
+
+  const mergedDaily   = useMemo(() => mergeWithLSIPrices(instrument?.daily,   lsiHistory), [instrument, lsiHistory]);
+  const mergedMonthly = useMemo(() => mergeWithLSIPrices(instrument?.monthly, lsiHistory), [instrument, lsiHistory]);
+
+  const latestLSI = lsiHistory.length ? lsiHistory[lsiHistory.length - 1] : null;
+  const lsiVsMarket = latestLSI && kpi?.last?.close
+    ? ((latestLSI.price - kpi.last.close) / kpi.last.close) * 100
+    : null;
+
+  if (loading) return <Spinner color={tabColor} />;
+  if (error)   return <ErrorCard message={error} />;
+  if (!instrument || !kpi) return <p className="text-slate-400 py-10 text-center">No data available.</p>;
+
+  const pctOf5YHigh = kpi.fiveYrHigh ? (kpi.last?.close / kpi.fiveYrHigh) * 100 : null;
+
+  return (
+    <div className="space-y-6">
+      <SupplierPricePanel
+        items={[{ key: 'hrc', label: 'HRC Steel (USD/T)', unit: 'USD/T', tickPrefix: '$', marketPrice: kpi.last?.close }]}
+        prices={supplierPrices}
+        onSetPrice={onSetPrice}
+      />
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <KpiCard title="HRC Steel — Current" main={`$${fmt(kpi.last?.close, 0)}`} sub={fmtDate(kpi.last?.date)} accent={tabColor}>
+          <ChangeChip value={kpi.dayChangePct} />
+        </KpiCard>
+        <KpiCard title="Day Change"
+          main={kpi.dayChange != null ? `${kpi.dayChange >= 0 ? '+' : ''}$${fmt(Math.abs(kpi.dayChange), 0)}` : '—'}
+          sub="USD/T" accent={tabColor}>
+          <ChangeChip value={kpi.dayChangePct} />
+        </KpiCard>
+        <KpiCard title="YTD"
+          main={kpi.ytdChangePct != null ? `${kpi.ytdChangePct >= 0 ? '+' : ''}${fmt(kpi.ytdChangePct)}%` : '—'}
+          sub={kpi.ytdHigh != null ? `H: $${fmt(kpi.ytdHigh, 0)}  ·  L: $${fmt(kpi.ytdLow, 0)}` : 'No YTD data'}
+          accent={tabColor} />
+        {latestLSI ? (
+          <KpiCard title="LSI vs Market"
+            main={lsiVsMarket != null ? `${lsiVsMarket >= 0 ? '+' : ''}${fmt(lsiVsMarket)}%` : '—'}
+            sub={`LSI: $${fmt(latestLSI.price, 0)}  ·  ${fmtDate(latestLSI.date)}`}
+            accent={lsiVsMarket != null ? (lsiVsMarket <= 0 ? '#34d399' : '#f87171') : '#64748b'} />
+        ) : (
+          <KpiCard title="5-Year High"
+            main={kpi.fiveYrHigh != null ? `$${fmt(kpi.fiveYrHigh, 0)}` : '—'}
+            sub={pctOf5YHigh != null ? `Current at ${fmt(pctOf5YHigh, 0)}% of 5Y high` : ''} accent="#64748b" />
+        )}
+      </div>
+
+      <ChartPanel
+        title="HRC Steel — Market vs LSI Contracted (USD/T)"
+        data={mergedDaily}
+        lines={[
+          { dataKey: 'close',    name: 'HRC Market',       color: tabColor },
+          { dataKey: 'lsiPrice', name: 'LSI Contracted',   color: LSI_HRC_COLOR },
+        ]}
+        tabColor={tabColor}
+        useMonthlyFor={mergedMonthly}
+        yDecimals={0}
+      />
+
+      <NewsPanel commodity="hrc" tabColor={tabColor} />
+      <TabFooter source="Source: Yahoo Finance (HRC=F) · U.S. Midwest HRC Steel (CRU) Index Futures · USD/T · LSI contracted prices overlaid" fetchedAt={fetchedAt} />
+    </div>
+  );
+}
+
 // ─── Tab: Oil ─────────────────────────────────────────────────────────────────
 
-function OilTab({ tabColor }) {
+function OilTab({ tabColor, supplierPrices, onSetPrice }) {
   const [instruments, setInstruments] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState(null);
@@ -448,6 +852,11 @@ function OilTab({ tabColor }) {
 
   return (
     <div className="space-y-6">
+      <SupplierPricePanel
+        items={[{ key: 'oil', label: 'WTI (USD/bbl)', unit: 'USD/bbl', tickPrefix: '$', marketPrice: wtiKpi?.last?.close }]}
+        prices={supplierPrices}
+        onSetPrice={onSetPrice}
+      />
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {wtiKpi && <>
           <KpiCard title="WTI Current" main={`$${fmt(wtiKpi.last?.close)}`} sub={fmtDate(wtiKpi.last?.date)} accent={wti?.color}>
@@ -474,9 +883,9 @@ function OilTab({ tabColor }) {
   );
 }
 
-// ─── Tab: Single Instrument (HRC, Aluminum, SS) ───────────────────────────────
+// ─── Tab: Single Instrument (HRC, Aluminum, SS, NatGas) ──────────────────────
 
-function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPrefix = '$', yDecimals = 0 }) {
+function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPrefix = '$', yDecimals = 0, supplierPrices, onSetPrice, supplierLabel }) {
   const [instrument, setInstrument] = useState(null);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
@@ -505,6 +914,13 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
           <span style={{ color: tabColor }} className="text-base mt-0.5 shrink-0">ℹ</span>
           <p className="text-xs text-slate-400 leading-relaxed">{proxyNote}</p>
         </div>
+      )}
+      {supplierLabel && (
+        <SupplierPricePanel
+          items={[{ key: commodity, label: supplierLabel, unit, tickPrefix, marketPrice: kpi.last?.close }]}
+          prices={supplierPrices}
+          onSetPrice={onSetPrice}
+        />
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard title={`${instrument.name} — Current`} main={`${tickPrefix}${fmt(kpi.last?.close)}`} sub={fmtDate(kpi.last?.date)} accent={tabColor}>
@@ -537,12 +953,12 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
 
 const RESIN_COLORS = { HDPE: '#f59e0b', LLDPE: '#a78bfa' };
 
-function PlasticsTab({ tabColor }) {
-  const [grades, setGrades]         = useState({ HDPE: [], LLDPE: [] });
-  const [headlines, setHeadlines]   = useState({ HDPE: 33609, LLDPE: 33592 });
-  const [fetchedAt, setFetchedAt]   = useState(null);
+function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
+  const [grades, setGrades]           = useState({ HDPE: [], LLDPE: [] });
+  const [headlines, setHeadlines]     = useState({ HDPE: 33609, LLDPE: 33592 });
+  const [fetchedAt, setFetchedAt]     = useState(null);
   const [initLoading, setInitLoading] = useState(true);
-  const [error, setError]           = useState(null);
+  const [error, setError]             = useState(null);
 
   const [selectedHDPE,  setSelectedHDPE]  = useState(33609);
   const [selectedLLDPE, setSelectedLLDPE] = useState(33592);
@@ -628,6 +1044,16 @@ function PlasticsTab({ tabColor }) {
           <GradeSelect resinKey="LLDPE" value={selectedLLDPE} onChange={setSelectedLLDPE} color={RESIN_COLORS.LLDPE} />
         </div>
       </div>
+
+      {/* Supplier price panel */}
+      <SupplierPricePanel
+        items={[
+          { key: 'plastics_hdpe',  label: 'HDPE (¢/lb)',  unit: '¢/lb', tickPrefix: '', marketPrice: hdpeKpi?.current  ?? null },
+          { key: 'plastics_lldpe', label: 'LLDPE (¢/lb)', unit: '¢/lb', tickPrefix: '', marketPrice: lldpeKpi?.current ?? null },
+        ]}
+        prices={supplierPrices}
+        onSetPrice={onSetPrice}
+      />
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -726,7 +1152,8 @@ function ResinChartPanel({ title, history, color, loading, tabColor }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('hrc');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [supplierPrices, setSupplierPrice] = useSupplierPrices();
   const tab = TABS.find((t) => t.key === activeTab);
 
   return (
@@ -741,7 +1168,7 @@ export default function Home() {
           <p className="text-xs text-slate-400 mt-1">{tab?.subtitle}</p>
         </div>
 
-        {/* Tab Bar — pill/segmented style */}
+        {/* Tab Bar */}
         <div className="flex flex-wrap gap-1.5 p-1.5 bg-[#13131a] border border-[#2a2a32] rounded-2xl">
           {TABS.map((t) => (
             <button
@@ -761,17 +1188,24 @@ export default function Home() {
         </div>
 
         {/* Tab Content */}
-        {activeTab === 'oil' && <OilTab tabColor={tab.color} />}
+        {activeTab === 'dashboard' && (
+          <DashboardTab supplierPrices={supplierPrices} onTabSwitch={setActiveTab} />
+        )}
+
+        {activeTab === 'oil' && (
+          <OilTab tabColor={tab.color} supplierPrices={supplierPrices} onSetPrice={setSupplierPrice} />
+        )}
 
         {activeTab === 'hrc' && (
-          <SingleTab commodity="hrc" tabColor={tab.color} unit="USD/T"
-            footerSource="Source: Yahoo Finance (HRC=F) · U.S. Midwest HRC Steel (CRU) Index Futures · USD/T" />
+          <HRCTab tabColor={tab.color} supplierPrices={supplierPrices} onSetPrice={setSupplierPrice} />
         )}
 
         {activeTab === 'aluminum' && (
           <SingleTab commodity="aluminum" tabColor={tab.color} unit="USD/lb"
             footerSource="Source: Yahoo Finance (ALI=F) · CME Micro Aluminum futures · USD/lb (÷2204.62 from USD/MT)"
-            yDecimals={4} />
+            yDecimals={4}
+            supplierPrices={supplierPrices} onSetPrice={setSupplierPrice}
+            supplierLabel="Aluminum (USD/lb)" />
         )}
 
         {activeTab === 'ss' && (
@@ -780,7 +1214,17 @@ export default function Home() {
             proxyNote="Stainless steel has no direct futures market. Vale S.A. (VALE) — the world's largest nickel producer — is used as the leading indicator for SS alloy surcharge pressure. Nickel drives ~30–40% of 304/316 SS mill cost; when VALE rises, expect surcharge increases from your SS suppliers. Base carbon steel cost is tracked separately in the HRC Steel tab." />
         )}
 
-        {activeTab === 'plastics' && <PlasticsTab tabColor={tab.color} />}
+        {activeTab === 'plastics' && (
+          <PlasticsTab tabColor={tab.color} supplierPrices={supplierPrices} onSetPrice={setSupplierPrice} />
+        )}
+
+        {activeTab === 'natgas' && (
+          <SingleTab commodity="natgas" tabColor={tab.color} unit="USD/MMBtu"
+            footerSource="Source: Yahoo Finance (NG=F) · Henry Hub Natural Gas · Front-month continuous futures · USD/MMBtu"
+            yDecimals={3}
+            supplierPrices={supplierPrices} onSetPrice={setSupplierPrice}
+            supplierLabel="Nat Gas (USD/MMBtu)" />
+        )}
 
       </div>
     </div>

@@ -24,6 +24,11 @@ const NEWS_FEEDS = {
     { label: 'LLDPE', url: 'https://news.google.com/rss/search?q=LLDPE+resin+price&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Plastics Market', url: 'https://news.google.com/rss/search?q=plastic+resin+price+market&hl=en-US&gl=US&ceid=US:en' },
   ],
+  natgas: [
+    { label: 'Natural Gas', url: 'https://news.google.com/rss/search?q=natural+gas+price+Henry+Hub&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'LNG Market', url: 'https://news.google.com/rss/search?q=LNG+natural+gas+market&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Energy Supply', url: 'https://news.google.com/rss/search?q=natural+gas+supply+demand+EIA&hl=en-US&gl=US&ceid=US:en' },
+  ],
 };
 
 function parseItems(xml) {

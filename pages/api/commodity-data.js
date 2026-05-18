@@ -22,6 +22,11 @@ const COMMODITIES = {
       { ticker: 'HRC=F', name: 'HRC Steel (CME)', unit: 'USD/T', color: '#ef4444' },
     ],
   },
+  natgas: {
+    instruments: [
+      { ticker: 'NG=F', name: 'Henry Hub Natural Gas', unit: 'USD/MMBtu', color: '#34d399' },
+    ],
+  },
 };
 
 const YF_HEADERS = {
