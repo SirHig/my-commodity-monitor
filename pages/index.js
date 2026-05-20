@@ -523,76 +523,25 @@ const DASHBOARD_SECTIONS = [
   },
 ];
 
-function DashboardCommodityCard({ item, summary, supplierPrice, onTabSwitch }) {
-  if (!summary) {
-    return (
-      <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5 flex flex-col gap-2 min-h-[140px] justify-center">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
-          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{item.label}</span>
-        </div>
-        <p className="text-slate-600 text-sm">No data</p>
-      </div>
-    );
-  }
-
-  const { price, dayChangePct, ytdChangePct, ytdHigh, ytdLow, date } = summary;
-  const delta = supplierPrice != null && price != null
-    ? ((supplierPrice - price) / price) * 100
-    : null;
-
+// Inline SVG sparkline built from an array of closing prices
+function DashboardSparkline({ points }) {
+  if (!points || points.length < 2) return <span style={{ color: '#334155' }}>—</span>;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const w = 64, h = 24;
+  const path = points.map((v, i) => {
+    const x = (i / (points.length - 1)) * w;
+    const y = h - ((v - min) / range) * (h - 2) - 1;
+    return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+  }).join(' ');
+  // Buyer perspective: price trend up = costs rising = red; down = green
+  const trend = points[points.length - 1] - points[0];
+  const stroke = trend > 0 ? '#f87171' : '#34d399';
   return (
-    <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl p-5 flex flex-col gap-3"
-      style={{ borderLeftWidth: 3, borderLeftColor: item.color }}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">{item.label}</span>
-        </div>
-        {date && <span className="text-xs text-slate-600">{fmtDate(date)}</span>}
-      </div>
-
-      <div className="flex items-end gap-3">
-        <span className="text-2xl font-bold font-mono" style={{ color: item.color }}>
-          {item.tickPrefix}{price != null ? fmt(price, item.yDecimals) : '—'}{item.unit.includes('¢') ? '¢' : ''}
-        </span>
-        {dayChangePct != null && <ChangeChip value={dayChangePct} />}
-      </div>
-
-      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
-        {ytdChangePct != null && (
-          <span>YTD: <span className={`font-semibold ${ytdChangePct >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-            {ytdChangePct >= 0 ? '+' : ''}{fmt(ytdChangePct)}%
-          </span></span>
-        )}
-        {ytdHigh != null && <span>H: {item.tickPrefix}{fmt(ytdHigh, item.yDecimals)}</span>}
-        {ytdLow  != null && <span>L: {item.tickPrefix}{fmt(ytdLow,  item.yDecimals)}</span>}
-      </div>
-
-      {item.supplierKey && (
-        <div className="border-t border-[#2a2a32] pt-2.5 mt-0.5">
-          {supplierPrice != null ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs text-slate-500">Contracted:</span>
-              <span className="text-xs font-mono text-slate-300">{item.tickPrefix}{fmt(supplierPrice, item.yDecimals)}</span>
-              {delta != null && (
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  delta > 0 ? 'text-red-400 bg-red-950/60' : 'text-emerald-400 bg-emerald-950/60'
-                }`}>
-                  {delta > 0 ? '+' : ''}{fmt(delta)}% vs mkt
-                </span>
-              )}
-            </div>
-          ) : (
-            <button
-              onClick={() => onTabSwitch(item.key === 'hdpe' || item.key === 'lldpe' ? 'plastics' : item.key)}
-              className="text-xs text-slate-600 hover:text-slate-400 transition-colors"
-            >
-              + Add contracted price
-            </button>
-          )}
-        </div>
-      )}
-    </div>
+    <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} fill="none" style={{ display: 'block' }}>
+      <path d={path} stroke={stroke} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.85" />
+    </svg>
   );
 }
 
@@ -626,7 +575,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
     });
   }, []);
 
-  const getSummary = (item) => {
+  const getRowData = (item) => {
     if (item.isPlastics) {
       const grades = allData.plastics?.grades;
       if (!grades) return null;
@@ -637,14 +586,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
       if (!grade || grade.current == null) return null;
       const prev = grade.current - (grade.change || 0);
       const dayChangePct = prev > 0 ? ((grade.change || 0) / prev) * 100 : null;
-      return {
-        price: grade.current,
-        date: grade.date,
-        dayChangePct,
-        ytdChangePct: null,
-        ytdHigh: null,
-        ytdLow: null,
-      };
+      return { price: grade.current, date: grade.date, dayChangePct, ytdChangePct: null, sparkPoints: null };
     }
 
     const instruments = allData[item.key]?.instruments;
@@ -654,55 +596,212 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
       : instruments[0];
     const kpi = buildKpi(inst?.daily);
     if (!kpi) return null;
+    const now = new Date();
+    const ytdDaily = (inst.daily || []).filter((d) => d.date >= `${now.getFullYear()}-01-01`);
+    const sparkPoints = ytdDaily.slice(-30).map((d) => d.close);
     return {
       price: kpi.last?.close,
       date: kpi.last?.date,
       dayChangePct: kpi.dayChangePct,
       ytdChangePct: kpi.ytdChangePct,
-      ytdHigh: kpi.ytdHigh,
-      ytdLow: kpi.ytdLow,
+      sparkPoints: sparkPoints.length >= 2 ? sparkPoints : null,
     };
   };
 
   if (loading) return <Spinner color="#64748b" />;
 
+  // Pre-compute all row data for bottom panels
+  const allRows = DASHBOARD_SECTIONS.flatMap((s) =>
+    s.items.map((item) => {
+      const rowData = getRowData(item);
+      const supplierPrice = item.supplierKey ? (supplierPrices[item.supplierKey] ?? null) : null;
+      const delta = supplierPrice != null && rowData?.price != null
+        ? ((supplierPrice - rowData.price) / rowData.price) * 100 : null;
+      return { item, rowData, supplierPrice, delta };
+    })
+  );
+  const contractedRows = allRows.filter((r) => r.delta != null);
+  const aboveMkt       = contractedRows.filter((r) => r.delta > 0);
+
+  const HDR = { fontSize: 9, color: '#475569', letterSpacing: '0.18em', fontWeight: 700,
+    textTransform: 'uppercase', padding: '6px 0', paddingRight: 14,
+    borderBottom: '1px solid #334155', whiteSpace: 'nowrap' };
+
+  const priceStr = (item, price) =>
+    price != null
+      ? `${item.tickPrefix}${fmt(price, item.yDecimals)}${item.unit.includes('¢') ? '¢' : ''}`
+      : '—';
+
   return (
-    <div className="space-y-8">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500">
-          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
-        </p>
-        {fetchedAt && (
-          <p className="text-xs text-slate-600">
-            Fetched {new Date(fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+    <div className="space-y-6" style={{ fontFamily: "ui-monospace, 'Cascadia Code', Consolas, monospace" }}>
+
+      {/* ── Header ── */}
+      <div className="flex items-baseline justify-between border-b border-[#2a2a32] pb-4">
+        <div>
+          <p className="text-xs text-slate-500 uppercase tracking-widest">Landscape Structures Inc.</p>
+          <h1 className="text-lg font-bold text-slate-100 mt-1">Supply Chain Commodity Briefing</h1>
+        </div>
+        <div className="text-right shrink-0 ml-4">
+          <p className="text-xs text-slate-400">
+            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </p>
-        )}
+          {fetchedAt && (
+            <p className="text-xs text-slate-600 mt-0.5">
+              Fetched {new Date(fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Sections */}
-      {DASHBOARD_SECTIONS.map((section) => (
-        <div key={section.label}>
-          <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-3 pl-1">
-            {section.label}
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {section.items.map((item) => (
-              <DashboardCommodityCard
-                key={item.key}
-                item={item}
-                summary={getSummary(item)}
-                supplierPrice={item.supplierKey ? (supplierPrices[item.supplierKey] ?? null) : null}
-                onTabSwitch={onTabSwitch}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+      {/* ── Briefing Table ── */}
+      <div className="overflow-x-auto">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+          <thead>
+            <tr>
+              <th style={{ ...HDR, textAlign: 'left' }}>Commodity</th>
+              <th style={{ ...HDR, textAlign: 'right' }}>Price</th>
+              <th style={{ ...HDR, textAlign: 'right' }}>Unit</th>
+              <th style={{ ...HDR, textAlign: 'right' }}>Day Δ</th>
+              <th style={{ ...HDR, textAlign: 'right' }}>YTD Δ</th>
+              <th style={{ ...HDR, textAlign: 'center' }}>Trend</th>
+              <th style={{ ...HDR, textAlign: 'right' }}>Contract</th>
+              <th style={{ ...HDR, textAlign: 'right', paddingRight: 0 }}>vs Mkt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {DASHBOARD_SECTIONS.map((section) => (
+              <React.Fragment key={section.label}>
+                {/* Section header row */}
+                <tr>
+                  <td colSpan={8} style={{ paddingTop: 18, paddingBottom: 5 }}>
+                    <span style={{ color: '#475569', fontSize: 9, letterSpacing: '0.25em', fontWeight: 700, textTransform: 'uppercase' }}>
+                      {section.label}
+                    </span>
+                  </td>
+                </tr>
 
-      <footer className="border-t border-[#2a2a32] pt-4 pb-2 text-xs text-slate-600 flex flex-wrap justify-between gap-2">
-        <span>Metals & Energy: Yahoo Finance · Plastics: Plastics News</span>
-        <span>Enter contracted prices on individual commodity tabs</span>
+                {section.items.map((item) => {
+                  const rowData = getRowData(item);
+                  const supplierPrice = item.supplierKey ? (supplierPrices[item.supplierKey] ?? null) : null;
+                  const delta = supplierPrice != null && rowData?.price != null
+                    ? ((supplierPrice - rowData.price) / rowData.price) * 100 : null;
+                  const CELL = { borderBottom: '1px solid #1a1a22', padding: '9px 14px 9px 0' };
+
+                  return (
+                    <tr key={item.key}>
+                      {/* Name */}
+                      <td style={{ ...CELL, paddingLeft: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: item.color, flexShrink: 0, display: 'inline-block' }} />
+                          <span style={{ color: '#e2e8f0' }}>{item.label}</span>
+                        </div>
+                      </td>
+                      {/* Price */}
+                      <td style={{ ...CELL, textAlign: 'right', color: item.color, fontWeight: 700, fontVariantNumeric: 'tabular-nums' }}>
+                        {priceStr(item, rowData?.price)}
+                      </td>
+                      {/* Unit */}
+                      <td style={{ ...CELL, textAlign: 'right', color: '#475569' }}>{item.unit}</td>
+                      {/* Day Δ */}
+                      <td style={{ ...CELL, textAlign: 'right' }}>
+                        {rowData?.dayChangePct != null
+                          ? <ChangeChip value={rowData.dayChangePct} />
+                          : <span style={{ color: '#334155' }}>—</span>}
+                      </td>
+                      {/* YTD Δ */}
+                      <td style={{ ...CELL, textAlign: 'right' }}>
+                        {rowData?.ytdChangePct != null
+                          ? <ChangeChip value={rowData.ytdChangePct} />
+                          : <span style={{ color: '#334155' }}>—</span>}
+                      </td>
+                      {/* Trend sparkline */}
+                      <td style={{ ...CELL, textAlign: 'center', padding: '7px 14px 7px 0' }}>
+                        <DashboardSparkline points={rowData?.sparkPoints} />
+                      </td>
+                      {/* Contracted price */}
+                      <td style={{ ...CELL, textAlign: 'right', color: '#94a3b8', fontVariantNumeric: 'tabular-nums' }}>
+                        {supplierPrice != null
+                          ? priceStr(item, supplierPrice)
+                          : item.supplierKey
+                            ? <button
+                                onClick={() => onTabSwitch(item.key === 'hdpe' || item.key === 'lldpe' ? 'plastics' : item.key)}
+                                style={{ color: '#334155', fontSize: 11, cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
+                              >+ add</button>
+                            : <span style={{ color: '#334155' }}>—</span>}
+                      </td>
+                      {/* vs Market delta */}
+                      <td style={{ ...CELL, textAlign: 'right', paddingRight: 0 }}>
+                        {delta != null ? (
+                          <span style={{
+                            fontSize: 11, fontWeight: 700,
+                            color: delta > 0 ? '#f87171' : '#34d399',
+                            background: delta > 0 ? 'rgba(127,29,29,0.35)' : 'rgba(6,78,59,0.35)',
+                            padding: '2px 6px', borderRadius: 4,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}>
+                            {delta > 0 ? '+' : ''}{fmt(delta)}%
+                          </span>
+                        ) : <span style={{ color: '#334155' }}>—</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* ── Bottom panels ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Above-market contracts */}
+        <div className="border border-[#2a2a32] rounded-lg p-4">
+          <p style={{ color: '#475569', fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase' }}>
+            ⚠ Above-Market Contracts
+          </p>
+          {aboveMkt.length === 0 ? (
+            <p style={{ color: '#334155', fontSize: 11 }}>All contracted prices are at or below market.</p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {aboveMkt.map((r) => (
+                <li key={r.item.key} style={{ fontSize: 11, padding: '3px 0', color: '#94a3b8' }}>
+                  · {r.item.label}:{' '}
+                  <span style={{ color: '#f87171', fontWeight: 700 }}>+{fmt(r.delta)}% above market</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Full contract position */}
+        <div className="border border-[#2a2a32] rounded-lg p-4">
+          <p style={{ color: '#475569', fontSize: 9, letterSpacing: '0.2em', fontWeight: 700, marginBottom: 10, textTransform: 'uppercase' }}>
+            Contract Position
+          </p>
+          {contractedRows.length === 0 ? (
+            <p style={{ color: '#334155', fontSize: 11 }}>
+              No contracted prices entered.{' '}
+              <button onClick={() => onTabSwitch('hrc')} style={{ color: '#64748b', textDecoration: 'underline', cursor: 'pointer', background: 'none', border: 'none', fontSize: 11 }}>
+                Add via commodity tabs.
+              </button>
+            </p>
+          ) : (
+            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+              {contractedRows.map((r) => (
+                <li key={r.item.key} style={{ fontSize: 11, padding: '3px 0' }}>
+                  <span style={{ color: '#94a3b8' }}>· {r.item.label}: </span>
+                  <span style={{ color: r.delta > 0 ? '#f87171' : '#34d399', fontWeight: 700 }}>
+                    {r.delta > 0 ? '+' : ''}{fmt(r.delta)}% {r.delta > 0 ? 'above' : 'below'} market
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+
+      <footer className="border-t border-[#2a2a32] pt-3 pb-1 text-xs text-slate-700 flex flex-wrap justify-between gap-2">
+        <span>Metals & Energy: Yahoo Finance · Plastics: Plastics News · Contracted: LSI purchasing records</span>
       </footer>
     </div>
   );
