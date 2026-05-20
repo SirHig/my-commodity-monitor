@@ -220,7 +220,7 @@ function ChangeChip({ value, suffix = '%', decimals = 2 }) {
   if (value == null || isNaN(value)) return null;
   const pos = value >= 0;
   return (
-    <span className={`inline-flex items-center gap-0.5 text-sm font-semibold px-1.5 py-0.5 rounded ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
+    <span className={`inline-flex items-center gap-0.5 text-sm font-semibold px-1.5 py-0.5 rounded ${pos ? 'text-red-400' : 'text-emerald-400'}`}>
       {pos ? '▲' : '▼'} {pos ? '+' : ''}{fmt(value, decimals)}{suffix}
     </span>
   );
@@ -560,7 +560,7 @@ function DashboardCommodityCard({ item, summary, supplierPrice, onTabSwitch }) {
 
       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-500">
         {ytdChangePct != null && (
-          <span>YTD: <span className={`font-semibold ${ytdChangePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+          <span>YTD: <span className={`font-semibold ${ytdChangePct >= 0 ? 'text-red-400' : 'text-emerald-400'}`}>
             {ytdChangePct >= 0 ? '+' : ''}{fmt(ytdChangePct)}%
           </span></span>
         )}
