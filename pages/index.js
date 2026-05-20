@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef, Fragment } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 // ─── Tab Config ───────────────────────────────────────────────────────────────
@@ -670,7 +670,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
           </thead>
           <tbody>
             {DASHBOARD_SECTIONS.map((section) => (
-              <React.Fragment key={section.label}>
+              <Fragment key={section.label}>
                 {/* Section header row */}
                 <tr>
                   <td colSpan={8} style={{ paddingTop: 18, paddingBottom: 5 }}>
@@ -746,7 +746,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
                     </tr>
                   );
                 })}
-              </React.Fragment>
+              </Fragment>
             ))}
           </tbody>
         </table>
