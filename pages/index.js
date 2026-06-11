@@ -561,6 +561,12 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
       fetch('/api/plastics-data')
         .then((r) => r.json())
         .then((d) => ['plastics', d]),
+      fetch('/api/plastics-data?gradeId=33609')
+        .then((r) => r.json())
+        .then((d) => ['plasticsHistHdpe', d]),
+      fetch('/api/plastics-data?gradeId=33592')
+        .then((r) => r.json())
+        .then((d) => ['plasticsHistLldpe', d]),
     ]).then((results) => {
       const data = {};
       results.forEach((r) => {
@@ -586,7 +592,15 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
       if (!grade || grade.current == null) return null;
       const prev = grade.current - (grade.change || 0);
       const dayChangePct = prev > 0 ? ((grade.change || 0) / prev) * 100 : null;
-      return { price: grade.current, date: grade.date, dayChangePct, ytdChangePct: null, sparkPoints: null };
+      const hist = (item.key === 'hdpe' ? allData.plasticsHistHdpe : allData.plasticsHistLldpe)?.history || [];
+      const ytd = hist.filter((d) => d.date >= `${new Date().getFullYear()}-01-01`);
+      const ytdChangePct = ytd.length > 1 && ytd[0].avg > 0
+        ? ((grade.current - ytd[0].avg) / ytd[0].avg) * 100 : null;
+      const sparkPoints = ytd.slice(-30).map((d) => d.avg);
+      return {
+        price: grade.current, date: grade.date, dayChangePct, ytdChangePct,
+        sparkPoints: sparkPoints.length >= 2 ? sparkPoints : null,
+      };
     }
 
     const instruments = allData[item.key]?.instruments;
@@ -626,6 +640,9 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
   const HDR = { fontSize: 9, color: '#475569', letterSpacing: '0.18em', fontWeight: 700,
     textTransform: 'uppercase', padding: '6px 0', paddingRight: 14,
     borderBottom: '1px solid #334155', whiteSpace: 'nowrap' };
+
+  // PN publishes a weekly sheet; surface its date so a flat price still reads as current
+  const plasticsSheetDate = (allData.plastics?.grades?.HDPE || []).find((g) => g.date)?.date;
 
   const priceStr = (item, price) =>
     price != null
@@ -676,6 +693,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
                   <td colSpan={8} style={{ paddingTop: 18, paddingBottom: 5 }}>
                     <span style={{ color: '#475569', fontSize: 9, letterSpacing: '0.25em', fontWeight: 700, textTransform: 'uppercase' }}>
                       {section.label}
+                      {section.label === 'Plastics' && plasticsSheetDate ? ` · week of ${plasticsSheetDate}` : ''}
                     </span>
                   </td>
                 </tr>
