@@ -11,6 +11,7 @@ const TABS = [
   { key: 'ss',        label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
   { key: 'oil',       label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
   { key: 'natgas',    label: 'Nat Gas',         color: '#34d399', subtitle: 'Henry Hub Natural Gas · USD/MMBtu · Yahoo Finance (NG=F)' },
+  { key: 'packaging', label: 'Packaging',       color: '#84cc16', subtitle: 'Corrugated & Paper · PKG & IP equity proxies · Yahoo Finance' },
 ];
 
 const RANGES = [
@@ -521,6 +522,13 @@ const DASHBOARD_SECTIONS = [
       { key: 'lldpe', label: 'LLDPE', color: '#a78bfa', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_lldpe', isPlastics: true },
     ],
   },
+  {
+    label: 'Packaging',
+    items: [
+      { key: 'pkg', label: 'Corrugated (PKG)', color: '#84cc16', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null },
+      { key: 'ip',  label: 'Paper (IP)',       color: '#60a5fa', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null },
+    ],
+  },
 ];
 
 // Inline SVG sparkline built from an array of closing prices
@@ -551,7 +559,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
   const [fetchedAt, setFetchedAt] = useState(null);
 
   useEffect(() => {
-    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas'];
+    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas', 'pkg', 'ip'];
     Promise.allSettled([
       ...yfKeys.map((k) =>
         fetch(`/api/commodity-data?commodity=${k}`)
@@ -1266,6 +1274,99 @@ function ResinChartPanel({ title, history, color, loading, tabColor }) {
   );
 }
 
+// ─── Tab: Packaging (Corrugated & Paper) ─────────────────────────────────────
+
+const PKG_COLOR = '#84cc16';
+const IP_COLOR  = '#60a5fa';
+
+function PackagingTab({ tabColor }) {
+  const [instruments, setInstruments] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState(null);
+  const [fetchedAt, setFetchedAt]     = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/commodity-data?commodity=pkg').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch('/api/commodity-data?commodity=ip').then((r)  => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    ])
+      .then(([pkgData, ipData]) => {
+        const pkg = pkgData.instruments?.[0];
+        const ip  = ipData.instruments?.[0];
+        setInstruments([
+          pkg ? { ...pkg, color: PKG_COLOR } : null,
+          ip  ? { ...ip,  color: IP_COLOR  } : null,
+        ].filter(Boolean));
+        setFetchedAt(pkgData.fetchedAt || new Date().toISOString());
+        setLoading(false);
+      })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, []);
+
+  const merge = (a, b, keyA, keyB) => {
+    if (!a?.length || !b?.length) return [];
+    const mapA = Object.fromEntries(a.map((d) => [d.date, d.close]));
+    const mapB = Object.fromEntries(b.map((d) => [d.date, d.close]));
+    const dates = [...new Set([...a.map((d) => d.date), ...b.map((d) => d.date)])].sort();
+    return dates.map((date) => ({ date, [keyA]: mapA[date] ?? null, [keyB]: mapB[date] ?? null }));
+  };
+
+  const [pkg, ip] = instruments;
+  const pkgKpi = useMemo(() => buildKpi(pkg?.daily), [pkg]);
+  const ipKpi  = useMemo(() => buildKpi(ip?.daily),  [ip]);
+
+  const combinedDaily   = useMemo(() => merge(pkg?.daily,   ip?.daily,   'pkg', 'ip'), [pkg, ip]);
+  const combinedMonthly = useMemo(() => merge(pkg?.monthly, ip?.monthly, 'pkg', 'ip'), [pkg, ip]);
+
+  if (loading) return <Spinner color={tabColor} />;
+  if (error)   return <ErrorCard message={error} />;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl px-4 py-3 flex items-start gap-3">
+        <span style={{ color: tabColor }} className="text-base mt-0.5 shrink-0">ℹ</span>
+        <p className="text-xs text-slate-400 leading-relaxed">
+          No direct futures market exists for corrugated or paper. <strong style={{ color: PKG_COLOR }}>Packaging Corporation of America (PKG)</strong> — one of the largest North American containerboard and corrugated box producers — is used as the leading indicator for corrugated pricing pressure. <strong style={{ color: IP_COLOR }}>International Paper (IP)</strong> covers the broader paper and industrial packaging market. When these equities rise, expect upward pressure on box and packaging contracts from your suppliers.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {pkgKpi && <>
+          <KpiCard title="PKG — Current" main={`$${fmt(pkgKpi.last?.close)}`} sub={fmtDate(pkgKpi.last?.date)} accent={PKG_COLOR}>
+            <ChangeChip value={pkgKpi.dayChangePct} />
+          </KpiCard>
+          <KpiCard title="PKG YTD" accent={PKG_COLOR}
+            main={pkgKpi.ytdChangePct != null ? `${pkgKpi.ytdChangePct >= 0 ? '+' : ''}${fmt(pkgKpi.ytdChangePct)}%` : '—'}
+            sub={pkgKpi.ytdHigh != null ? `H: $${fmt(pkgKpi.ytdHigh)}  ·  L: $${fmt(pkgKpi.ytdLow)}` : 'No YTD data'} />
+        </>}
+        {ipKpi && <>
+          <KpiCard title="IP — Current" main={`$${fmt(ipKpi.last?.close)}`} sub={fmtDate(ipKpi.last?.date)} accent={IP_COLOR}>
+            <ChangeChip value={ipKpi.dayChangePct} />
+          </KpiCard>
+          <KpiCard title="IP YTD" accent={IP_COLOR}
+            main={ipKpi.ytdChangePct != null ? `${ipKpi.ytdChangePct >= 0 ? '+' : ''}${fmt(ipKpi.ytdChangePct)}%` : '—'}
+            sub={ipKpi.ytdHigh != null ? `H: $${fmt(ipKpi.ytdHigh)}  ·  L: $${fmt(ipKpi.ytdLow)}` : 'No YTD data'} />
+        </>}
+      </div>
+
+      <ChartPanel
+        title="Corrugated & Paper Proxies — PKG & IP (USD)"
+        data={combinedDaily}
+        lines={[
+          { dataKey: 'pkg', name: 'PKG (Corrugated)', color: PKG_COLOR },
+          { dataKey: 'ip',  name: 'IP (Paper)',       color: IP_COLOR  },
+        ]}
+        tabColor={tabColor}
+        useMonthlyFor={combinedMonthly}
+        yDecimals={2}
+      />
+
+      <NewsPanel commodity="packaging" tabColor={tabColor} />
+      <TabFooter source="Source: Yahoo Finance (PKG, IP) · Equity proxies for corrugated and paper pricing pressure · USD" fetchedAt={fetchedAt} />
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -1341,6 +1442,10 @@ export default function Home() {
             yDecimals={3}
             supplierPrices={supplierPrices} onSetPrice={setSupplierPrice}
             supplierLabel="Nat Gas (USD/MMBtu)" />
+        )}
+
+        {activeTab === 'packaging' && (
+          <PackagingTab tabColor={tab.color} />
         )}
 
       </div>

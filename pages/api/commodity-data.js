@@ -27,6 +27,16 @@ const COMMODITIES = {
       { ticker: 'NG=F', name: 'Henry Hub Natural Gas', unit: 'USD/MMBtu', color: '#34d399' },
     ],
   },
+  pkg: {
+    instruments: [
+      { ticker: 'PKG', name: 'Packaging Corp of America', unit: 'USD', color: '#84cc16' },
+    ],
+  },
+  ip: {
+    instruments: [
+      { ticker: 'IP', name: 'International Paper', unit: 'USD', color: '#60a5fa' },
+    ],
+  },
 };
 
 const YF_HEADERS = {

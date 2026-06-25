@@ -29,6 +29,11 @@ const NEWS_FEEDS = {
     { label: 'LNG Market', url: 'https://news.google.com/rss/search?q=LNG+natural+gas+market&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Energy Supply', url: 'https://news.google.com/rss/search?q=natural+gas+supply+demand+EIA&hl=en-US&gl=US&ceid=US:en' },
   ],
+  packaging: [
+    { label: 'Corrugated', url: 'https://news.google.com/rss/search?q=corrugated+box+packaging+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Containerboard', url: 'https://news.google.com/rss/search?q=containerboard+linerboard+price+market&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Paper & Pulp', url: 'https://news.google.com/rss/search?q=paper+pulp+packaging+price+market&hl=en-US&gl=US&ceid=US:en' },
+  ],
 };
 
 function parseItems(xml) {
