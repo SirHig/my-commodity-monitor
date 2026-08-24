@@ -22,6 +22,8 @@ const NEWS_FEEDS = {
   plastics: [
     { label: 'HDPE', url: 'https://news.google.com/rss/search?q=HDPE+resin+price&hl=en-US&gl=US&ceid=US:en' },
     { label: 'LLDPE', url: 'https://news.google.com/rss/search?q=LLDPE+resin+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'PP', url: 'https://news.google.com/rss/search?q=polypropylene+PP+resin+price&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Propylene', url: 'https://news.google.com/rss/search?q=%22polymer+grade+propylene%22&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Plastics Market', url: 'https://news.google.com/rss/search?q=plastic+resin+price+market&hl=en-US&gl=US&ceid=US:en' },
   ],
   natgas: [
@@ -33,6 +35,17 @@ const NEWS_FEEDS = {
     { label: 'Corrugated', url: 'https://news.google.com/rss/search?q=corrugated+box+packaging+price&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Containerboard', url: 'https://news.google.com/rss/search?q=containerboard+linerboard+price+market&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Paper & Pulp', url: 'https://news.google.com/rss/search?q=paper+pulp+packaging+price+market&hl=en-US&gl=US&ceid=US:en' },
+  ],
+  diesel: [
+    { label: 'Diesel', url: 'https://news.google.com/rss/search?q=diesel+fuel+price+ULSD&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Freight', url: 'https://news.google.com/rss/search?q=trucking+freight+rates+fuel+surcharge&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Distillate Supply', url: 'https://news.google.com/rss/search?q=distillate+inventories+refining+crack+spread&hl=en-US&gl=US&ceid=US:en' },
+  ],
+  coatings: [
+    { label: 'Powder Coating', url: 'https://news.google.com/rss/search?q=powder+coating+price+raw+material&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'TiO2', url: 'https://news.google.com/rss/search?q=titanium+dioxide+TiO2+price+market&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Resins', url: 'https://news.google.com/rss/search?q=epoxy+polyester+resin+price+coatings&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Coatings Market', url: 'https://news.google.com/rss/search?q=industrial+coatings+paint+price+increase&hl=en-US&gl=US&ceid=US:en' },
   ],
 };
 
@@ -97,7 +110,7 @@ export default async function handler(req, res) {
       return b.pubDate.localeCompare(a.pubDate);
     });
 
-    return res.status(200).json({ news: all.slice(0, 20), fetchedAt: new Date().toISOString() });
+    return res.status(200).json({ news: all.slice(0, 30), fetchedAt: new Date().toISOString() });
   } catch (err) {
     console.error('commodity-news error:', err.message);
     return res.status(500).json({ error: err.message });

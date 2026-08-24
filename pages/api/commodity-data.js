@@ -37,6 +37,24 @@ const COMMODITIES = {
       { ticker: 'IP', name: 'International Paper', unit: 'USD', color: '#60a5fa' },
     ],
   },
+  diesel: {
+    instruments: [
+      { ticker: 'HO=F', name: 'ULSD Diesel (NYMEX)', unit: 'USD/gal', color: '#fb923c' },
+    ],
+  },
+  tio2: {
+    instruments: [
+      { ticker: 'CC',   name: 'Chemours (TiO2)', unit: 'USD', color: '#f472b6' },
+      { ticker: 'TROX', name: 'Tronox (TiO2)',   unit: 'USD', color: '#c084fc' },
+      { ticker: 'KRO',  name: 'Kronos (TiO2)',   unit: 'USD', color: '#fbbf24' },
+    ],
+  },
+  coatings: {
+    instruments: [
+      { ticker: 'PPG',  name: 'PPG Industries', unit: 'USD', color: '#38bdf8' },
+      { ticker: 'AXTA', name: 'Axalta Coating Systems', unit: 'USD', color: '#4ade80' },
+    ],
+  },
 };
 
 const YF_HEADERS = {

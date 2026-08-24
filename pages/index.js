@@ -6,12 +6,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 const TABS = [
   { key: 'dashboard', label: 'Dashboard',      color: '#64748b', subtitle: 'All commodities · Executive summary' },
   { key: 'hrc',       label: 'HRC Steel',      color: '#ef4444', subtitle: 'Hot-Rolled Coil Futures · USD/T · Yahoo Finance (HRC=F)' },
-  { key: 'plastics',  label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE & LLDPE · ¢/lb · Source: Plastics News' },
+  { key: 'plastics',  label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE, LLDPE & PP · ¢/lb · Source: Plastics News' },
   { key: 'aluminum',  label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/lb · Yahoo Finance (ALI=F)' },
   { key: 'ss',        label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
   { key: 'oil',       label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
   { key: 'natgas',    label: 'Nat Gas',         color: '#34d399', subtitle: 'Henry Hub Natural Gas · USD/MMBtu · Yahoo Finance (NG=F)' },
   { key: 'packaging', label: 'Packaging',       color: '#84cc16', subtitle: 'Corrugated & Paper · PKG & IP equity proxies · Yahoo Finance' },
+  { key: 'coatings',  label: 'Powder Coat',     color: '#f472b6', subtitle: 'TiO₂ pigment & coatings producer proxies · Yahoo Finance (CC, TROX, KRO, PPG, AXTA)' },
+  { key: 'diesel',    label: 'Diesel',          color: '#fb923c', subtitle: 'ULSD Diesel Futures · USD/gal · Yahoo Finance (HO=F)' },
 ];
 
 const RANGES = [
@@ -513,13 +515,15 @@ const DASHBOARD_SECTIONS = [
     items: [
       { key: 'oil',    label: 'WTI Crude',     color: '#f59e0b', unit: 'USD/bbl',   tickPrefix: '$', yDecimals: 2, supplierKey: 'oil' },
       { key: 'natgas', label: 'Natural Gas',   color: '#34d399', unit: 'USD/MMBtu', tickPrefix: '$', yDecimals: 3, supplierKey: 'natgas' },
+      { key: 'diesel', label: 'ULSD Diesel',   color: '#fb923c', unit: 'USD/gal',   tickPrefix: '$', yDecimals: 3, supplierKey: 'diesel' },
     ],
   },
   {
     label: 'Plastics',
     items: [
-      { key: 'hdpe',  label: 'HDPE',  color: '#f59e0b', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_hdpe',  isPlastics: true },
-      { key: 'lldpe', label: 'LLDPE', color: '#a78bfa', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_lldpe', isPlastics: true },
+      { key: 'hdpe',  label: 'HDPE',  color: '#f59e0b', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_hdpe',  isPlastics: true, resinKey: 'HDPE',  headlineId: 33609, tabKey: 'plastics' },
+      { key: 'lldpe', label: 'LLDPE', color: '#a78bfa', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_lldpe', isPlastics: true, resinKey: 'LLDPE', headlineId: 33592, tabKey: 'plastics' },
+      { key: 'pp',    label: 'PP',    color: '#22d3ee', unit: '¢/lb', tickPrefix: '', yDecimals: 2, supplierKey: 'plastics_pp',    isPlastics: true, resinKey: 'PP',    headlineId: 33596, tabKey: 'plastics' },
     ],
   },
   {
@@ -527,6 +531,13 @@ const DASHBOARD_SECTIONS = [
     items: [
       { key: 'pkg', label: 'Corrugated (PKG)', color: '#84cc16', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null },
       { key: 'ip',  label: 'Paper (IP)',       color: '#60a5fa', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null },
+    ],
+  },
+  {
+    label: 'Coatings',
+    items: [
+      { key: 'tio2',     label: 'TiO₂ (Chemours)', color: '#f472b6', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null, tabKey: 'coatings' },
+      { key: 'coatings', label: 'Coatings (PPG)',  color: '#38bdf8', unit: 'USD', tickPrefix: '$', yDecimals: 2, supplierKey: null, tabKey: 'coatings' },
     ],
   },
 ];
@@ -559,7 +570,8 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
   const [fetchedAt, setFetchedAt] = useState(null);
 
   useEffect(() => {
-    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas', 'pkg', 'ip'];
+    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas', 'diesel', 'pkg', 'ip', 'tio2', 'coatings'];
+    const resinHeadlines = [['HDPE', 33609], ['LLDPE', 33592], ['PP', 33596]];
     Promise.allSettled([
       ...yfKeys.map((k) =>
         fetch(`/api/commodity-data?commodity=${k}`)
@@ -569,12 +581,11 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
       fetch('/api/plastics-data')
         .then((r) => r.json())
         .then((d) => ['plastics', d]),
-      fetch('/api/plastics-data?gradeId=33609')
-        .then((r) => r.json())
-        .then((d) => ['plasticsHistHdpe', d]),
-      fetch('/api/plastics-data?gradeId=33592')
-        .then((r) => r.json())
-        .then((d) => ['plasticsHistLldpe', d]),
+      ...resinHeadlines.map(([resinKey, id]) =>
+        fetch(`/api/plastics-data?gradeId=${id}`)
+          .then((r) => r.json())
+          .then((d) => [`plasticsHist_${resinKey}`, d])
+      ),
     ]).then((results) => {
       const data = {};
       results.forEach((r) => {
@@ -593,14 +604,13 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
     if (item.isPlastics) {
       const grades = allData.plastics?.grades;
       if (!grades) return null;
-      const resinKey = item.key === 'hdpe' ? 'HDPE' : 'LLDPE';
-      const headlineId = item.key === 'hdpe' ? 33609 : 33592;
+      const resinKey = item.resinKey;
       const list = grades[resinKey] || [];
-      const grade = list.find((g) => g.id === headlineId) || list[0];
+      const grade = list.find((g) => g.id === item.headlineId) || list[0];
       if (!grade || grade.current == null) return null;
       const prev = grade.current - (grade.change || 0);
       const dayChangePct = prev > 0 ? ((grade.change || 0) / prev) * 100 : null;
-      const hist = (item.key === 'hdpe' ? allData.plasticsHistHdpe : allData.plasticsHistLldpe)?.history || [];
+      const hist = allData[`plasticsHist_${resinKey}`]?.history || [];
       const ytd = hist.filter((d) => d.date >= `${new Date().getFullYear()}-01-01`);
       const ytdChangePct = ytd.length > 1 && ytd[0].avg > 0
         ? ((grade.current - ytd[0].avg) / ytd[0].avg) * 100 : null;
@@ -750,7 +760,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
                           ? priceStr(item, supplierPrice)
                           : item.supplierKey
                             ? <button
-                                onClick={() => onTabSwitch(item.key === 'hdpe' || item.key === 'lldpe' ? 'plastics' : item.key)}
+                                onClick={() => onTabSwitch(item.tabKey || item.key)}
                                 style={{ color: '#334155', fontSize: 11, cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}
                               >+ add</button>
                             : <span style={{ color: '#334155' }}>—</span>}
@@ -1076,17 +1086,18 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
 
 // ─── Tab: Plastics ────────────────────────────────────────────────────────────
 
-const RESIN_COLORS = { HDPE: '#f59e0b', LLDPE: '#a78bfa' };
+const RESIN_COLORS = { HDPE: '#f59e0b', LLDPE: '#a78bfa', PP: '#22d3ee' };
 
 function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
-  const [grades, setGrades]           = useState({ HDPE: [], LLDPE: [] });
-  const [headlines, setHeadlines]     = useState({ HDPE: 33609, LLDPE: 33592 });
+  const [grades, setGrades]           = useState({ HDPE: [], LLDPE: [], PP: [] });
+  const [headlines, setHeadlines]     = useState({ HDPE: 33609, LLDPE: 33592, PP: 33596 });
   const [fetchedAt, setFetchedAt]     = useState(null);
   const [initLoading, setInitLoading] = useState(true);
   const [error, setError]             = useState(null);
 
   const [selectedHDPE,  setSelectedHDPE]  = useState(33609);
   const [selectedLLDPE, setSelectedLLDPE] = useState(33592);
+  const [selectedPP,    setSelectedPP]    = useState(33596);
 
   const [histCache,   setHistCache]   = useState({});
   const [histLoading, setHistLoading] = useState({});
@@ -1113,11 +1124,12 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
   }, [histCache, histLoading]);
 
   useEffect(() => {
-    if (!initLoading) { loadHistory(headlines.HDPE); loadHistory(headlines.LLDPE); }
+    if (!initLoading) { loadHistory(headlines.HDPE); loadHistory(headlines.LLDPE); loadHistory(headlines.PP); }
   }, [initLoading]);
 
   useEffect(() => { if (selectedHDPE)  loadHistory(selectedHDPE);  }, [selectedHDPE]);
   useEffect(() => { if (selectedLLDPE) loadHistory(selectedLLDPE); }, [selectedLLDPE]);
+  useEffect(() => { if (selectedPP)    loadHistory(selectedPP);    }, [selectedPP]);
 
   const resinKpi = (key, selectedId) => {
     const list  = grades[key] || [];
@@ -1139,9 +1151,11 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
 
   const hdpeKpi  = resinKpi('HDPE',  selectedHDPE);
   const lldpeKpi = resinKpi('LLDPE', selectedLLDPE);
+  const ppKpi    = resinKpi('PP',    selectedPP);
 
   const hdpeHistory  = (histCache[selectedHDPE]  || []).map((d) => ({ date: d.date, avg: d.avg }));
   const lldpeHistory = (histCache[selectedLLDPE] || []).map((d) => ({ date: d.date, avg: d.avg }));
+  const ppHistory    = (histCache[selectedPP]    || []).map((d) => ({ date: d.date, avg: d.avg }));
 
   const GradeSelect = ({ resinKey, value, onChange, color }) => (
     <select value={value} onChange={(e) => onChange(+e.target.value)}
@@ -1168,6 +1182,10 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
           <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: RESIN_COLORS.LLDPE }}>LLDPE</span>
           <GradeSelect resinKey="LLDPE" value={selectedLLDPE} onChange={setSelectedLLDPE} color={RESIN_COLORS.LLDPE} />
         </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: RESIN_COLORS.PP }}>PP</span>
+          <GradeSelect resinKey="PP" value={selectedPP} onChange={setSelectedPP} color={RESIN_COLORS.PP} />
+        </div>
       </div>
 
       {/* Supplier price panel */}
@@ -1175,6 +1193,7 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
         items={[
           { key: 'plastics_hdpe',  label: 'HDPE (¢/lb)',  unit: '¢/lb', tickPrefix: '', marketPrice: hdpeKpi?.current  ?? null },
           { key: 'plastics_lldpe', label: 'LLDPE (¢/lb)', unit: '¢/lb', tickPrefix: '', marketPrice: lldpeKpi?.current ?? null },
+          { key: 'plastics_pp',    label: 'PP (¢/lb)',    unit: '¢/lb', tickPrefix: '', marketPrice: ppKpi?.current    ?? null },
         ]}
         prices={supplierPrices}
         onSetPrice={onSetPrice}
@@ -1198,6 +1217,14 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
             main={lldpeKpi.ytdChangePct != null ? `${lldpeKpi.ytdChangePct >= 0 ? '+' : ''}${fmt(lldpeKpi.ytdChangePct)}%` : '—'}
             sub={lldpeKpi.ytdHigh != null ? `H: ${fmt(lldpeKpi.ytdHigh)}¢  ·  L: ${fmt(lldpeKpi.ytdLow)}¢` : 'No YTD data'} />
         </>}
+        {ppKpi && <>
+          <KpiCard title="PP Current" main={`${fmt(ppKpi.current)}¢`} sub={ppKpi.date} accent={RESIN_COLORS.PP}>
+            {ppKpi.change != null && <ChangeChip value={ppKpi.change} suffix="¢" />}
+          </KpiCard>
+          <KpiCard title="PP YTD" accent={RESIN_COLORS.PP}
+            main={ppKpi.ytdChangePct != null ? `${ppKpi.ytdChangePct >= 0 ? '+' : ''}${fmt(ppKpi.ytdChangePct)}%` : '—'}
+            sub={ppKpi.ytdHigh != null ? `H: ${fmt(ppKpi.ytdHigh)}¢  ·  L: ${fmt(ppKpi.ytdLow)}¢` : 'No YTD data'} />
+        </>}
       </div>
 
       {/* Charts */}
@@ -1207,9 +1234,12 @@ function PlasticsTab({ tabColor, supplierPrices, onSetPrice }) {
       <ResinChartPanel
         title={`LLDPE — ${(grades.LLDPE || []).find((g) => g.id === selectedLLDPE)?.name || ''} (¢/lb)`}
         history={lldpeHistory} color={RESIN_COLORS.LLDPE} loading={!!histLoading[selectedLLDPE]} tabColor={tabColor} />
+      <ResinChartPanel
+        title={`PP — ${(grades.PP || []).find((g) => g.id === selectedPP)?.name || ''} (¢/lb)`}
+        history={ppHistory} color={RESIN_COLORS.PP} loading={!!histLoading[selectedPP]} tabColor={tabColor} />
 
       <NewsPanel commodity="plastics" tabColor={tabColor} />
-      <TabFooter source="Source: Plastics News · North America commodity thermoplastics · V2 (mid-range volume) pricing · ¢/lb" fetchedAt={fetchedAt} />
+      <TabFooter source="Source: Plastics News · North America commodity thermoplastics · V2 (mid-range volume) pricing · ¢/lb · PP tracks polymer-grade propylene — the upstream feedstock for epoxy and polyester powder-coat resins" fetchedAt={fetchedAt} />
     </div>
   );
 }
@@ -1367,6 +1397,98 @@ function PackagingTab({ tabColor }) {
   );
 }
 
+// ─── Tab: Powder Coat ────────────────────────────────────────
+
+// Powder coat has no published index. Track the two inputs that move it most:
+// TiO2 pigment (CC / TROX / KRO) and the producers themselves (PPG / AXTA).
+function CoatingsTab({ tabColor }) {
+  const [pigment, setPigment]     = useState([]);
+  const [makers, setMakers]       = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [error, setError]         = useState(null);
+  const [fetchedAt, setFetchedAt] = useState(null);
+
+  useEffect(() => {
+    Promise.all([
+      fetch('/api/commodity-data?commodity=tio2').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+      fetch('/api/commodity-data?commodity=coatings').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
+    ])
+      .then(([t, c]) => {
+        setPigment(t.instruments || []);
+        setMakers(c.instruments || []);
+        setFetchedAt(t.fetchedAt || new Date().toISOString());
+        setLoading(false);
+      })
+      .catch((e) => { setError(e.message); setLoading(false); });
+  }, []);
+
+  // Merge N instruments onto a single date axis, one column per ticker
+  const mergeAll = (list, field) => {
+    if (!list.length) return [];
+    const maps = list.map((i) => [i.ticker, Object.fromEntries((i[field] || []).map((d) => [d.date, d.close]))]);
+    const dates = [...new Set(list.flatMap((i) => (i[field] || []).map((d) => d.date)))].sort();
+    return dates.map((date) => {
+      const row = { date };
+      maps.forEach(([tk, m]) => { row[tk] = m[date] ?? null; });
+      return row;
+    });
+  };
+
+  const pigDaily   = useMemo(() => mergeAll(pigment, 'daily'),   [pigment]);
+  const pigMonthly = useMemo(() => mergeAll(pigment, 'monthly'), [pigment]);
+  const mkDaily    = useMemo(() => mergeAll(makers,  'daily'),   [makers]);
+  const mkMonthly  = useMemo(() => mergeAll(makers,  'monthly'), [makers]);
+
+  if (loading) return <Spinner color={tabColor} />;
+  if (error)   return <ErrorCard message={error} />;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[#1a1a1f] border border-[#2a2a32] rounded-xl px-4 py-3 flex items-start gap-3">
+        <span style={{ color: tabColor }} className="text-base mt-0.5 shrink-0">ℹ</span>
+        <div className="text-xs text-slate-400 leading-relaxed space-y-2">
+          <p>
+            Powder coat has no published price index. Roughly <strong className="text-slate-200">50–70% of formula cost is resin binder</strong> — polyester built from PTA and NPG, or epoxy from BPA and epichlorohydrin. Both chains trace back to propylene and paraxylene. <strong className="text-slate-200">Pigment runs 10–30%</strong>, dominated by TiO₂ in whites and pastels and by far costlier organics in high-chroma colors.
+          </p>
+          <p>
+            <strong style={{ color: '#f472b6' }}>CC</strong>, <strong style={{ color: '#c084fc' }}>TROX</strong> and <strong style={{ color: '#fbbf24' }}>KRO</strong> are the TiO₂ producers and read as a proxy for pigment cost pressure. <strong style={{ color: '#38bdf8' }}>PPG</strong> and <strong style={{ color: '#4ade80' }}>AXTA</strong> are major powder manufacturers — their margin trend tells you whether a supplier's raw-material story holds up. Propylene exposure sits on the <strong className="text-slate-200">Plastics</strong> tab (PP), grind and cure-oven energy on <strong className="text-slate-200">Nat Gas</strong>, and delivered freight on <strong className="text-slate-200">Diesel</strong>.
+          </p>
+          <p className="text-slate-500">
+            Negotiating note: compare <strong className="text-slate-300">cost per square foot at spec film build</strong>, never price per pound. Theoretical coverage is about 192.3 ÷ specific gravity (ft²/lb at 1 mil), so a heavily filled powder quoted at a lower $/lb can still cost more per part.
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[...pigment, ...makers].map((inst) => {
+          const kpi = buildKpi(inst.daily);
+          if (!kpi) return null;
+          return (
+            <KpiCard key={inst.ticker} title={`${inst.ticker} — Current`} main={`$${fmt(kpi.last?.close)}`} sub={fmtDate(kpi.last?.date)} accent={inst.color}>
+              <ChangeChip value={kpi.dayChangePct} />
+            </KpiCard>
+          );
+        })}
+      </div>
+
+      <ChartPanel
+        title={`TiO₂ Pigment Proxies — Chemours, Tronox, Kronos (USD)`}
+        data={pigDaily}
+        lines={pigment.map((i) => ({ dataKey: i.ticker, name: i.name, color: i.color }))}
+        tabColor={tabColor} useMonthlyFor={pigMonthly} yDecimals={2} />
+
+      <ChartPanel
+        title="Coatings Producers — PPG & Axalta (USD)"
+        data={mkDaily}
+        lines={makers.map((i) => ({ dataKey: i.ticker, name: i.name, color: i.color }))}
+        tabColor={tabColor} useMonthlyFor={mkMonthly} yDecimals={2} />
+
+      <NewsPanel commodity="coatings" tabColor={tabColor} />
+      <TabFooter source="Source: Yahoo Finance (CC, TROX, KRO, PPG, AXTA) · Equity proxies · no direct futures market exists for TiO₂ or powder coating · USD" fetchedAt={fetchedAt} />
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -1446,6 +1568,19 @@ export default function Home() {
 
         {activeTab === 'packaging' && (
           <PackagingTab tabColor={tab.color} />
+        )}
+
+        {activeTab === 'coatings' && (
+          <CoatingsTab tabColor={tab.color} />
+        )}
+
+        {activeTab === 'diesel' && (
+          <SingleTab commodity="diesel" tabColor={tab.color} unit="USD/gal"
+            footerSource="Source: Yahoo Finance (HO=F) · NYMEX ULSD front-month continuous futures · USD/gal"
+            yDecimals={3}
+            proxyNote="ULSD is the base for LTL and truckload fuel surcharges. Crude alone misses the crack spread, so diesel can climb while WTI is flat. Freight is a material share of delivered cost on low-density freight — powder coat, packaging and rotomolded parts especially."
+            supplierPrices={supplierPrices} onSetPrice={setSupplierPrice}
+            supplierLabel="Diesel (USD/gal)" />
         )}
 
       </div>

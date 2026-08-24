@@ -21,9 +21,21 @@ const GRADES = {
     { id: 33708, name: 'HAO Lid Resin' },
     { id: 33665, name: 'HAO Extrusion Liner Film' },
   ],
+  PP: [
+    { id: 33596, name: 'Homopolymer Injection GP' },
+    { id: 33608, name: 'Extrusion Fiber' },
+    { id: 33594, name: 'Extrusion Film' },
+    { id: 33630, name: 'Extrusion Profiles' },
+    { id: 33624, name: 'Extrusion Sheet' },
+    { id: 33614, name: 'Random Copolymer Injection' },
+    { id: 33691, name: 'Random Copolymer Film' },
+    { id: 33619, name: 'Random Copolymer Blow Molding' },
+    { id: 33643, name: 'Impact Copolymer High Impact' },
+    { id: 33627, name: 'Impact Copolymer TPO' },
+  ],
 };
 
-const HEADLINES = { HDPE: 33609, LLDPE: 33592 };
+const HEADLINES = { HDPE: 33609, LLDPE: 33592, PP: 33596 };
 
 async function fetchHistory(id) {
   const res = await fetch(`${PN_BASE}/get-resin-history`, {
@@ -57,7 +69,7 @@ export default async function handler(req, res) {
     // History request for a specific grade
     if (gradeId) {
       const id = parseInt(gradeId, 10);
-      const allGrades = [...GRADES.HDPE, ...GRADES.LLDPE];
+      const allGrades = [...GRADES.HDPE, ...GRADES.LLDPE, ...GRADES.PP];
       if (!allGrades.find((g) => g.id === id)) {
         return res.status(400).json({ error: 'Unknown grade ID' });
       }
@@ -96,6 +108,7 @@ export default async function handler(req, res) {
       grades: {
         HDPE: buildCurrent(GRADES.HDPE, 'HDPE'),
         LLDPE: buildCurrent(GRADES.LLDPE, 'LLDPE'),
+        PP: buildCurrent(GRADES.PP, 'PP'),
       },
       headlines: HEADLINES,
       fetchedAt: new Date().toISOString(),
