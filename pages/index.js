@@ -9,6 +9,7 @@ const TABS = [
   { key: 'plastics',  label: 'Plastics',        color: '#a78bfa', subtitle: 'HDPE, LLDPE & PP · ¢/lb · Source: Plastics News' },
   { key: 'aluminum',  label: 'Aluminum',        color: '#94a3b8', subtitle: 'CME Aluminum Futures · USD/lb · Yahoo Finance (ALI=F)' },
   { key: 'ss',        label: 'Stainless Steel', color: '#06b6d4', subtitle: 'Vale S.A. (VALE) · Nickel Proxy · Yahoo Finance' },
+  { key: 'lumber',    label: 'Lumber',          color: '#d4a373', subtitle: 'CME Lumber Futures · USD per 1,000 board feet · Yahoo Finance (LBR=F)' },
   { key: 'oil',       label: 'Oil',             color: '#f59e0b', subtitle: 'WTI & Brent Crude · USD/bbl · Yahoo Finance (CL=F, BZ=F)' },
   { key: 'natgas',    label: 'Nat Gas',         color: '#34d399', subtitle: 'Henry Hub Natural Gas · USD/MMBtu · Yahoo Finance (NG=F)' },
   { key: 'packaging', label: 'Packaging',       color: '#84cc16', subtitle: 'Corrugated & Paper · PKG & IP equity proxies · Yahoo Finance' },
@@ -511,6 +512,12 @@ const DASHBOARD_SECTIONS = [
     ],
   },
   {
+    label: 'Wood',
+    items: [
+      { key: 'lumber', label: 'Lumber (CME)', color: '#d4a373', unit: 'USD/mbf', tickPrefix: '$', yDecimals: 0, supplierKey: 'lumber' },
+    ],
+  },
+  {
     label: 'Energy',
     items: [
       { key: 'oil',    label: 'WTI Crude',     color: '#f59e0b', unit: 'USD/bbl',   tickPrefix: '$', yDecimals: 2, supplierKey: 'oil' },
@@ -570,7 +577,7 @@ function DashboardTab({ supplierPrices, onTabSwitch }) {
   const [fetchedAt, setFetchedAt] = useState(null);
 
   useEffect(() => {
-    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'natgas', 'diesel', 'pkg', 'ip', 'tio2', 'coatings'];
+    const yfKeys = ['oil', 'hrc', 'aluminum', 'ss', 'lumber', 'natgas', 'diesel', 'pkg', 'ip', 'tio2', 'coatings'];
     const resinHeadlines = [['HDPE', 33609], ['LLDPE', 33592], ['PP', 33596]];
     Promise.allSettled([
       ...yfKeys.map((k) =>
@@ -1556,6 +1563,15 @@ export default function Home() {
 
         {activeTab === 'plastics' && (
           <PlasticsTab tabColor={tab.color} supplierPrices={supplierPrices} onSetPrice={setSupplierPrice} />
+        )}
+
+        {activeTab === 'lumber' && (
+          <SingleTab commodity="lumber" tabColor={tab.color} unit="USD/mbf"
+            footerSource="Source: Yahoo Finance (LBR=F) · CME Lumber front-month continuous futures · USD per 1,000 board feet (mbf) · Western SPF 2x4 #2&Btr, delivered Chicago"
+            yDecimals={0}
+            proxyNote="CME Lumber (LBR) is the benchmark for North American softwood framing lumber and the best leading indicator for dimensional lumber, treated lumber and plywood quotes. It launched in Aug 2022 (replacing the old random-length LBS contract), so the history is short: the 5-year high is really the since-inception high. Watch Canadian softwood duties and U.S. housing starts — they move this market more than anything else."
+            supplierPrices={supplierPrices} onSetPrice={setSupplierPrice}
+            supplierLabel="Lumber (USD/mbf)" />
         )}
 
         {activeTab === 'natgas' && (
