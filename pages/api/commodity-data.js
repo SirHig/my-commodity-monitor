@@ -42,6 +42,12 @@ const COMMODITIES = {
       { ticker: 'HO=F', name: 'ULSD Diesel (NYMEX)', unit: 'USD/gal', color: '#fb923c' },
     ],
   },
+  lumber: {
+    instruments: [
+      // CME Lumber (LBR) launched Aug 2022, replacing random-length LBS. Quoted USD per 1,000 board feet.
+      { ticker: 'LBR=F', name: 'Lumber (CME)', unit: 'USD/mbf', color: '#d4a373' },
+    ],
+  },
   tio2: {
     instruments: [
       { ticker: 'CC',   name: 'Chemours (TiO2)', unit: 'USD', color: '#f472b6' },

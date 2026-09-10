@@ -41,6 +41,12 @@ const NEWS_FEEDS = {
     { label: 'Freight', url: 'https://news.google.com/rss/search?q=trucking+freight+rates+fuel+surcharge&hl=en-US&gl=US&ceid=US:en' },
     { label: 'Distillate Supply', url: 'https://news.google.com/rss/search?q=distillate+inventories+refining+crack+spread&hl=en-US&gl=US&ceid=US:en' },
   ],
+  lumber: [
+    { label: 'Lumber', url: 'https://news.google.com/rss/search?q=lumber+prices+futures&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Softwood Duties', url: 'https://news.google.com/rss/search?q=softwood+lumber+tariff+duties+Canada&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Housing Demand', url: 'https://news.google.com/rss/search?q=housing+starts+homebuilder+lumber+demand&hl=en-US&gl=US&ceid=US:en' },
+    { label: 'Sawmills', url: 'https://news.google.com/rss/search?q=sawmill+curtailment+lumber+supply&hl=en-US&gl=US&ceid=US:en' },
+  ],
   coatings: [
     { label: 'Powder Coating', url: 'https://news.google.com/rss/search?q=powder+coating+price+raw+material&hl=en-US&gl=US&ceid=US:en' },
     { label: 'TiO2', url: 'https://news.google.com/rss/search?q=titanium+dioxide+TiO2+price+market&hl=en-US&gl=US&ceid=US:en' },
