@@ -954,7 +954,7 @@ function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
         data={mergedDaily}
         lines={[
           { dataKey: 'close',    name: 'HRC Market',       color: tabColor },
-          { dataKey: 'lsiPrice', name: 'LSI Contracted',   color: LSI_HRC_COLOR, type: 'stepAfter' },
+          ...(latestLSI ? [{ dataKey: 'lsiPrice', name: 'LSI Contracted', color: LSI_HRC_COLOR, type: 'stepAfter' }] : []),
         ]}
         tabColor={tabColor}
         useMonthlyFor={mergedMonthly}
