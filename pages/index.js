@@ -950,11 +950,11 @@ function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
       </div>
 
       <ChartPanel
-        title="HRC Steel — Market vs LSI Contracted (USD/T)"
+        title={lsiHistory.length ? 'HRC Steel — Market vs LSI Contracted (USD/T)' : 'HRC Steel — Market (USD/T)'}
         data={mergedDaily}
         lines={[
           { dataKey: 'close',    name: 'HRC Market',       color: tabColor },
-          ...(latestLSI ? [{ dataKey: 'lsiPrice', name: 'LSI Contracted', color: LSI_HRC_COLOR, type: 'stepAfter' }] : []),
+          ...(lsiHistory.length ? [{ dataKey: 'lsiPrice', name: 'LSI Contracted', color: LSI_HRC_COLOR, type: 'stepAfter' }] : []),
         ]}
         tabColor={tabColor}
         useMonthlyFor={mergedMonthly}
