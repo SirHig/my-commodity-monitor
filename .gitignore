@@ -4,3 +4,5 @@ out/
 .env
 .env.local
 .DS_Store
+# LSI contract prices: local machine only, never published
+public/*.local.json

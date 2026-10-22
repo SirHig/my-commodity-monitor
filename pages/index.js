@@ -329,7 +329,7 @@ function ChartPanel({ title, data, lines, tabColor, useMonthlyFor, unit = '', ti
           {lines.map((l) => (
             <Line
               key={l.dataKey}
-              type="linear"
+              type={l.type || 'linear'}
               dataKey={l.dataKey}
               name={l.name}
               stroke={l.color}
@@ -878,7 +878,8 @@ function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
   useEffect(() => {
     Promise.all([
       fetch('/api/commodity-data?commodity=hrc').then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-      fetch('/lsi-hrc-history.json').then((r) => r.json()).catch(() => []),
+      // Gitignored, local-only file; absent on the deployed site, so the LSI line just doesn't draw there.
+      fetch('/lsi-hrc-history.local.json').then((r) => { if (!r.ok) throw new Error(); return r.json(); }).catch(() => []),
     ])
       .then(([{ instruments, fetchedAt: fa }, lsi]) => {
         setInstrument(instruments?.[0] || null);
@@ -891,10 +892,20 @@ function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
 
   const kpi = useMemo(() => buildKpi(instrument?.daily), [instrument]);
 
-  const mergedDaily   = useMemo(() => mergeWithLSIPrices(instrument?.daily,   lsiHistory), [instrument, lsiHistory]);
-  const mergedMonthly = useMemo(() => mergeWithLSIPrices(instrument?.monthly, lsiHistory), [instrument, lsiHistory]);
+  // A price entered in the Contracted Price box is the current LSI contract and
+  // wins over the static history file (same value the Dashboard uses).
+  const enteredHRC = supplierPrices?.hrc ?? null;
+  const effectiveHistory = useMemo(() => {
+    if (enteredHRC == null) return lsiHistory;
+    const asOf = kpi?.last?.date || new Date().toISOString().slice(0, 10);
+    const base = lsiHistory.filter((h) => h.date < asOf);
+    return [...base, { date: asOf, price: enteredHRC }];
+  }, [lsiHistory, enteredHRC, kpi]);
 
-  const latestLSI = lsiHistory.length ? lsiHistory[lsiHistory.length - 1] : null;
+  const mergedDaily   = useMemo(() => mergeWithLSIPrices(instrument?.daily,   effectiveHistory), [instrument, effectiveHistory]);
+  const mergedMonthly = useMemo(() => mergeWithLSIPrices(instrument?.monthly, effectiveHistory), [instrument, effectiveHistory]);
+
+  const latestLSI = effectiveHistory.length ? effectiveHistory[effectiveHistory.length - 1] : null;
   const lsiVsMarket = latestLSI && kpi?.last?.close
     ? ((latestLSI.price - kpi.last.close) / kpi.last.close) * 100
     : null;
@@ -943,7 +954,7 @@ function HRCTab({ tabColor, supplierPrices, onSetPrice }) {
         data={mergedDaily}
         lines={[
           { dataKey: 'close',    name: 'HRC Market',       color: tabColor },
-          { dataKey: 'lsiPrice', name: 'LSI Contracted',   color: LSI_HRC_COLOR },
+          { dataKey: 'lsiPrice', name: 'LSI Contracted',   color: LSI_HRC_COLOR, type: 'stepAfter' },
         ]}
         tabColor={tabColor}
         useMonthlyFor={mergedMonthly}
