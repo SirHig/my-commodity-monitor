@@ -1043,22 +1043,57 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [fetchedAt, setFetchedAt]   = useState(null);
+  const [feedPremium, setFeedPremium] = useState(null);
 
   useEffect(() => {
     setLoading(true); setError(null);
     fetch(`/api/commodity-data?commodity=${commodity}`)
       .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
-      .then(({ instruments: inst, fetchedAt: fa }) => { setInstrument(inst?.[0] || null); setFetchedAt(fa); setLoading(false); })
+      .then(({ instruments: inst, premium, fetchedAt: fa }) => { setInstrument(inst?.[0] || null); setFeedPremium(premium || null); setFetchedAt(fa); setLoading(false); })
       .catch((e) => { setError(e.message); setLoading(false); });
   }, [commodity]);
 
   const kpi = useMemo(() => buildKpi(instrument?.daily), [instrument]);
+
+  // Midwest premium: a hand-entered value wins; otherwise the CME AUP=F futures feed (last settled close).
+  // The manual as-of date lives in its own localStorage key and is stamped to today whenever the premium changes.
+  // All-in = LME-based price + premium.
+  const isAluminum  = commodity === 'aluminum';
+  const manualPremium = isAluminum ? (supplierPrices?.aluminum_premium ?? null) : null;
+  const useFeed     = isAluminum && manualPremium == null && feedPremium != null;
+  const mwPremium   = manualPremium ?? (isAluminum ? feedPremium?.cents ?? null : null);
+  const [premiumDate, setPremiumDate] = useState('');
+
+  useEffect(() => {
+    try { setPremiumDate(localStorage.getItem('lsi_aluminum_premium_date') || ''); } catch {}
+  }, []);
+
+  const updatePremiumDate = (d) => {
+    setPremiumDate(d);
+    try { localStorage.setItem('lsi_aluminum_premium_date', d); } catch {}
+  };
+
+  const handleSetPrice = (key, v) => {
+    if (key === 'aluminum_premium') {
+      const next = v === '' || v === null ? null : parseFloat(v);
+      const changed = (isNaN(next) ? null : next) !== manualPremium;
+      if (changed) updatePremiumDate(new Date().toISOString().slice(0, 10));
+    }
+    onSetPrice(key, v);
+  };
 
   if (loading) return <Spinner color={tabColor} />;
   if (error)   return <ErrorCard message={error} />;
   if (!instrument || !kpi) return <p className="text-slate-400 py-10 text-center">No data available.</p>;
 
   const pctOf5YHigh = kpi.fiveYrHigh ? (kpi.last?.close / kpi.fiveYrHigh) * 100 : null;
+  const allIn       = mwPremium != null && kpi.last?.close != null ? kpi.last.close + mwPremium / 100 : null;
+  const asOfDate       = useFeed ? feedPremium.date : premiumDate;
+  const premiumAgeDays = asOfDate ? Math.floor((Date.now() - new Date(`${asOfDate}T00:00:00`).getTime()) / 86400000) : null;
+  const premiumStale   = premiumAgeDays == null || premiumAgeDays > (useFeed ? 5 : 14);
+  const premiumAsOf    = asOfDate
+    ? `${useFeed ? 'CME AUP=F settle' : 'as of'} ${fmtDate(asOfDate)} (${premiumAgeDays === 0 ? 'today' : `${premiumAgeDays}d ago`})`
+    : 'date not set';
 
   return (
     <div className="space-y-6">
@@ -1070,10 +1105,27 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
       )}
       {supplierLabel && (
         <SupplierPricePanel
-          items={[{ key: commodity, label: supplierLabel, unit, tickPrefix, marketPrice: kpi.last?.close }]}
+          items={[
+            { key: commodity, label: supplierLabel, unit, tickPrefix, marketPrice: kpi.last?.close },
+            ...(isAluminum ? [{ key: 'aluminum_premium', label: 'MW Premium', unit: '¢/lb', tickPrefix: '' }] : []),
+          ]}
           prices={supplierPrices}
-          onSetPrice={onSetPrice}
+          onSetPrice={handleSetPrice}
         />
+      )}
+      {isAluminum && (
+        <div className="flex items-center gap-2 -mt-3 px-1 text-xs text-slate-500">
+          <span>MW premium as of</span>
+          <input type="date" value={premiumDate} onChange={(e) => updatePremiumDate(e.target.value)}
+            className="bg-[#0f0f11] border border-[#2a2a32] rounded px-2 py-1 text-xs text-white font-mono focus:outline-none focus:border-slate-500" />
+          {premiumStale && mwPremium != null && <span style={{ color: '#fbbf24' }}>⚠ stale or undated, update it</span>}
+          {feedPremium && (
+            <span className="ml-2">
+              · CME AUP=F feed: <span className="font-mono text-slate-300">{fmt(feedPremium.cents, 2)}¢/lb</span> ({fmtDate(feedPremium.date)})
+              {useFeed ? ' · in use' : ' · overridden by your entry'}
+            </span>
+          )}
+        </div>
       )}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard title={`${instrument.name} — Current`} main={`${tickPrefix}${fmt(kpi.last?.close)}`} sub={fmtDate(kpi.last?.date)} accent={tabColor}>
@@ -1088,9 +1140,16 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
           main={kpi.ytdChangePct != null ? `${kpi.ytdChangePct >= 0 ? '+' : ''}${fmt(kpi.ytdChangePct)}%` : '—'}
           sub={kpi.ytdHigh != null ? `H: ${tickPrefix}${fmt(kpi.ytdHigh, yDecimals)}  ·  L: ${tickPrefix}${fmt(kpi.ytdLow, yDecimals)}` : 'No YTD data'}
           accent={tabColor} />
-        <KpiCard title="5-Year High"
-          main={kpi.fiveYrHigh != null ? `${tickPrefix}${fmt(kpi.fiveYrHigh, yDecimals)}` : '—'}
-          sub={pctOf5YHigh != null ? `Current at ${fmt(pctOf5YHigh, 0)}% of 5Y high` : ''} accent="#64748b" />
+        {allIn != null ? (
+          <KpiCard title="All-in (Mkt + MW Premium)"
+            main={`${tickPrefix}${fmt(allIn, yDecimals)}`}
+            sub={`${tickPrefix}${fmt(kpi.last.close, yDecimals)} + ${fmt(mwPremium, 2)}¢ premium · ${premiumAsOf}`}
+            accent={premiumStale ? '#fbbf24' : tabColor} />
+        ) : (
+          <KpiCard title="5-Year High"
+            main={kpi.fiveYrHigh != null ? `${tickPrefix}${fmt(kpi.fiveYrHigh, yDecimals)}` : '—'}
+            sub={pctOf5YHigh != null ? `Current at ${fmt(pctOf5YHigh, 0)}% of 5Y high` : ''} accent="#64748b" />
+        )}
       </div>
       <ChartPanel title={`${instrument.name} (${unit})`} data={instrument.daily}
         lines={[{ dataKey: 'close', name: instrument.name, color: tabColor }]}

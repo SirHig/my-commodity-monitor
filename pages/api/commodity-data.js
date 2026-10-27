@@ -89,7 +89,21 @@ export default async function handler(req, res) {
         return { ...inst, daily: convert(daily), monthly: convert(monthly) };
       })
     );
-    return res.status(200).json({ instruments, fetchedAt: new Date().toISOString() });
+    // Midwest premium: CME AUP=F (USD/lb) -> ¢/lb. Use the last bar before today so the
+    // live intraday tick (which can jump on a contract roll) never becomes the premium.
+    // Failure is non-fatal; the manual entry still works.
+    let premium = null;
+    if (commodity === 'aluminum') {
+      try {
+        const bars = await fetchYF('AUP=F', '1d', '1mo', 4);
+        const today = new Date().toISOString().split('T')[0];
+        const settled = bars.filter((b) => b.date < today).pop();
+        if (settled) premium = { cents: Math.round(settled.close * 10000) / 100, date: settled.date, ticker: 'AUP=F' };
+      } catch (err) {
+        console.error('MW premium error:', err.message);
+      }
+    }
+    return res.status(200).json({ instruments, premium, fetchedAt: new Date().toISOString() });
   } catch (err) {
     console.error('commodity-data error:', err.message);
     return res.status(500).json({ error: err.message });
