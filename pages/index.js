@@ -1152,7 +1152,10 @@ function SingleTab({ commodity, tabColor, unit, footerSource, proxyNote, tickPre
         )}
       </div>
       <ChartPanel title={`${instrument.name} (${unit})`} data={instrument.daily}
-        lines={[{ dataKey: 'close', name: instrument.name, color: tabColor }]}
+        lines={[
+          { dataKey: 'close', name: instrument.name, color: tabColor },
+          ...(isAluminum && feedPremium ? [{ dataKey: 'allIn', name: 'All-in (mkt + MW premium)', color: '#fbbf24' }] : []),
+        ]}
         tabColor={tabColor} useMonthlyFor={instrument.monthly}
         tickPrefix={tickPrefix} yDecimals={yDecimals} />
       <NewsPanel commodity={commodity} tabColor={tabColor} />

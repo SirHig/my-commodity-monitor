@@ -95,10 +95,27 @@ export default async function handler(req, res) {
     let premium = null;
     if (commodity === 'aluminum') {
       try {
-        const bars = await fetchYF('AUP=F', '1d', '1mo', 4);
         const today = new Date().toISOString().split('T')[0];
-        const settled = bars.filter((b) => b.date < today).pop();
+        const [dailyBars, monthlyBars] = await Promise.all([
+          fetchYF('AUP=F', '1d', '5y', 4),
+          fetchYF('AUP=F', '1mo', 'max', 4),
+        ]);
+        const settled = dailyBars.filter((b) => b.date < today).pop();
         if (settled) premium = { cents: Math.round(settled.close * 10000) / 100, date: settled.date, ticker: 'AUP=F' };
+
+        // allIn = market + premium (both USD/lb), carrying the last settled premium over gaps.
+        // Today's live bar is excluded for the same reason as above. Dates before the premium's
+        // first observation get no allIn, so the line starts where the data does.
+        const addAllIn = (points, bars) => {
+          const byDate = new Map(bars.filter((b) => b.date < today).map((b) => [b.date, b.close]));
+          let last = null;
+          return points.map((p) => {
+            if (byDate.has(p.date)) last = byDate.get(p.date);
+            return last != null && p.close != null ? { ...p, allIn: Math.round((p.close + last) * 10000) / 10000 } : p;
+          });
+        };
+        instruments[0].daily = addAllIn(instruments[0].daily, dailyBars);
+        instruments[0].monthly = addAllIn(instruments[0].monthly, monthlyBars);
       } catch (err) {
         console.error('MW premium error:', err.message);
       }
